@@ -8,7 +8,7 @@ const styles: Record<string, string> = {
 };
 
 export function StatusBadge({ status, className }: { status?: string | null; className?: string }) {
-  const label = status || "Unknown";
+  const label = status || "Prospect";
   const style = styles[label] ?? "bg-muted text-muted-foreground";
   return (
     <span
