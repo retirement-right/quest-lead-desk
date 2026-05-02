@@ -87,7 +87,6 @@ export default function ContactDetail() {
       status: status || null,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
-      updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
