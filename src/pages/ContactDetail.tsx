@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { supabase, Lead, LeadDocument, STATUS_OPTIONS } from "@/lib/supabase";
+import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ export default function ContactDetail() {
       if (data) {
         const l = data as Lead;
         setLead(l);
-        setStatus(l.status ?? "");
+        setStatus(stageToLabel(l.lifecycle_stage));
         setAppointment(toLocalInput(l.appointment_at));
         setNotes(l.notes ?? "");
       }
@@ -84,7 +84,7 @@ export default function ContactDetail() {
     if (!id) return;
     setSaving(true);
     const payload = {
-      status: status || null,
+      lifecycle_stage: status ? labelToStage(status) : null,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
     };
@@ -167,7 +167,7 @@ export default function ContactDetail() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{fullName}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <StatusBadge status={lead.status} />
+              <StatusBadge status={stageToLabel(lead.lifecycle_stage)} />
               {lead.event_name && <span className="text-sm text-muted-foreground">· {lead.event_name}</span>}
             </div>
           </div>

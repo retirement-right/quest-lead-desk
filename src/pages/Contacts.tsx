@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, Lead, STATUS_OPTIONS } from "@/lib/supabase";
+import { supabase, Lead, STATUS_OPTIONS, stageToLabel } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,7 +42,7 @@ export default function Contacts() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
-      if (status !== "all" && (l.status ?? "") !== status) return false;
+      if (status !== "all" && stageToLabel(l.lifecycle_stage) !== status) return false;
       if (!needle) return true;
       return [
         fullName(l),
@@ -118,7 +118,7 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
-                  <TableCell><StatusBadge status={l.status} /></TableCell>
+                  <TableCell><StatusBadge status={stageToLabel(l.lifecycle_stage)} /></TableCell>
                 </TableRow>
               ))
             )}

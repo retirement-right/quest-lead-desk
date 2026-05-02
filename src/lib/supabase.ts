@@ -21,15 +21,17 @@ export type LeadStatus =
 export interface Lead {
   id: string;
   email: string | null;
-  first_name: string | null;
-  last_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  name?: string | null;
   phone: string | null;
   address: string | null;
   event_name: string | null;
   event_date: string | null;
-  status: LeadStatus | string | null;
-  appointment_at: string | null;
-  notes: string | null;
+  lifecycle_stage: string | null;
+  appointment_at?: string | null;
+  notes?: string | null;
+  raw_payload?: Record<string, any> | null;
   updated_at?: string | null;
   created_at?: string | null;
   registration_group_id?: string | null;
@@ -51,3 +53,25 @@ export const STATUS_OPTIONS: LeadStatus[] = [
   "Client",
   "Not Interested",
 ];
+
+const DB_TO_LABEL: Record<string, LeadStatus> = {
+  new: "Prospect",
+  prospect: "Prospect",
+  appointment_set: "Appointment Set",
+  client: "Client",
+  not_interested: "Not Interested",
+};
+
+const LABEL_TO_DB: Record<LeadStatus, string> = {
+  Prospect: "prospect",
+  "Appointment Set": "appointment_set",
+  Client: "client",
+  "Not Interested": "not_interested",
+};
+
+export const stageToLabel = (stage?: string | null): LeadStatus => {
+  if (!stage) return "Prospect";
+  return DB_TO_LABEL[stage.toLowerCase()] ?? "Prospect";
+};
+
+export const labelToStage = (label: string): string => LABEL_TO_DB[label as LeadStatus] ?? label;
