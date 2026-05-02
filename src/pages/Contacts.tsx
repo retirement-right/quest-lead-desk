@@ -8,7 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-const fullName = (l: Lead) => [l.first_name, l.last_name].filter(Boolean).join(" ") || "—";
+const fullName = (l: Lead) => {
+  const direct = [l.first_name, l.last_name].filter(Boolean).join(" ");
+  if (direct) return direct;
+  if ((l as any).name) return (l as any).name as string;
+  const rp = (l as any).raw_payload;
+  if (rp) {
+    const fromPayload = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
+    if (fromPayload) return fromPayload;
+  }
+  return "—";
+};
 
 export default function Contacts() {
   const [leads, setLeads] = useState<Lead[]>([]);
