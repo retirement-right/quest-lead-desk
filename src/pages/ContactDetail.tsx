@@ -203,6 +203,36 @@ export default function ContactDetail() {
             <ReadOnly label="Last name" value={lastName} />
             <ReadOnly label="Email" value={lead.email} />
             <ReadOnly label="Phone" value={lead.phone} />
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Birthdate</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !birthdate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {birthdate ? format(birthdate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={birthdate}
+                    onSelect={setBirthdate}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
+                    disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="sm:col-span-2"><ReadOnly label="Address" value={lead.address} /></div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <ReadOnly label="Event date" value={lead.event_date} />
