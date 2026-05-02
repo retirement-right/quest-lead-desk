@@ -155,7 +155,17 @@ export default function ContactDetail() {
     );
   }
 
-  const fullName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unnamed contact";
+  const rp = (lead.raw_payload ?? {}) as Record<string, any>;
+  const firstName = lead.first_name || rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "";
+  const lastName = lead.last_name || rp.last_name || (lead.name ? String(lead.name).split(" ").slice(1).join(" ") : "") || "";
+  const roleValue = (() => {
+    const candidates = [lead.role, rp.role];
+    for (const c of candidates) {
+      if (c && String(c).trim().toLowerCase() !== "role") return String(c);
+    }
+    return null;
+  })();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || lead.name || "Unnamed contact";
 
   return (
     <div className="space-y-6">
@@ -182,15 +192,15 @@ export default function ContactDetail() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Contact details</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <ReadOnly label="First name" value={lead.first_name} />
-            <ReadOnly label="Last name" value={lead.last_name} />
+            <ReadOnly label="First name" value={firstName} />
+            <ReadOnly label="Last name" value={lastName} />
             <ReadOnly label="Email" value={lead.email} />
             <ReadOnly label="Phone" value={lead.phone} />
             <div className="sm:col-span-2"><ReadOnly label="Address" value={lead.address} /></div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <ReadOnly label="Event date" value={lead.event_date} />
             <ReadOnly label="Registration group ID" value={lead.registration_group_id ?? null} />
-            <ReadOnly label="Role" value={lead.role ?? null} />
+            <ReadOnly label="Role" value={roleValue} />
             <ReadOnly label="Is guest" value={lead.is_guest == null ? null : lead.is_guest ? "Yes" : "No"} />
           </CardContent>
         </Card>
