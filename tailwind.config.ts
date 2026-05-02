@@ -47,6 +47,16 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        status: {
+          prospect: "hsl(var(--status-prospect))",
+          "prospect-foreground": "hsl(var(--status-prospect-foreground))",
+          client: "hsl(var(--status-client))",
+          "client-foreground": "hsl(var(--status-client-foreground))",
+          "not-interested": "hsl(var(--status-not-interested))",
+          "not-interested-foreground": "hsl(var(--status-not-interested-foreground))",
+          appointment: "hsl(var(--status-appointment))",
+          "appointment-foreground": "hsl(var(--status-appointment-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
