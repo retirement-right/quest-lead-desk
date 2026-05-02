@@ -3,7 +3,11 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
+import { AuthProvider } from "@/hooks/useAuth";
+import { RequireAuth } from "@/components/RequireAuth";
+import Login from "./pages/Login";
+import Contacts from "./pages/Contacts";
+import ContactDetail from "./pages/ContactDetail";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -14,12 +18,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<RequireAuth><Contacts /></RequireAuth>} />
+            <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
+      </Routes>
     </TooltipProvider>
   </QueryClientProvider>
 );
