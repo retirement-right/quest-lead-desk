@@ -36,6 +36,7 @@ export interface Lead {
   created_at?: string | null;
   registration_group_id?: string | null;
   is_guest?: boolean | null;
+  date_of_birth?: string | null;
   role?: string | null;
 }
 

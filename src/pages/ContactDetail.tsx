@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { format, parseISO } from "date-fns";
 import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Save, Upload } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, CalendarIcon, Download, Loader2, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const BUCKET = "lead-documents";
@@ -45,6 +49,7 @@ export default function ContactDetail() {
   const [status, setStatus] = useState<string>("");
   const [appointment, setAppointment] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
 
   const loadDocs = async () => {
     if (!id) return;
@@ -73,6 +78,7 @@ export default function ContactDetail() {
         setStatus(stageToLabel(l.lifecycle_stage));
         setAppointment(toLocalInput(l.appointment_at));
         setNotes(l.notes ?? "");
+        setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
       }
       await loadDocs();
       setLoading(false);
@@ -87,6 +93,7 @@ export default function ContactDetail() {
       lifecycle_stage: status ? labelToStage(status) : null,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
+      date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
