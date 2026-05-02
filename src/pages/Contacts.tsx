@@ -22,7 +22,7 @@ export default function Contacts() {
       const { data, error } = await supabase
         .from("leadjig_leads")
         .select("*")
-        .order("updated_at", { ascending: false, nullsFirst: false });
+        .order("created_at", { ascending: false, nullsFirst: false });
       if (error) toast.error(error.message);
       else setLeads((data ?? []) as Lead[]);
       setLoading(false);

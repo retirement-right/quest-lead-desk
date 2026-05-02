@@ -30,7 +30,8 @@ export interface Lead {
   status: LeadStatus | string | null;
   appointment_at: string | null;
   notes: string | null;
-  updated_at: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
   registration_group_id?: string | null;
   is_guest?: boolean | null;
   role?: string | null;
