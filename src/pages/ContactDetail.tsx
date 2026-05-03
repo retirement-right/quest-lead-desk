@@ -58,6 +58,15 @@ export default function ContactDetail() {
   const [phone, setPhone] = useState<string>("");
   const [address, setAddress] = useState<string>("");
 
+  // Client profile fields
+  const [cpNumChildren, setCpNumChildren] = useState<string>("");
+  const [cpSpouseName, setCpSpouseName] = useState<string>("");
+  const [cpSpouseBirthdate, setCpSpouseBirthdate] = useState<Date | undefined>(undefined);
+  const [cpRetirementDate, setCpRetirementDate] = useState<Date | undefined>(undefined);
+  const [cpNetWorth, setCpNetWorth] = useState<string>("");
+  const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
+  const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
+
   const loadDocs = async () => {
     if (!id) return;
     const { data, error } = await supabase
