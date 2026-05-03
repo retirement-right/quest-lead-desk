@@ -183,8 +183,6 @@ export default function ContactDetail() {
   }
 
   const rp = (lead.raw_payload ?? {}) as Record<string, any>;
-  const firstName = lead.first_name || rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "";
-  const lastName = lead.last_name || rp.last_name || (lead.name ? String(lead.name).split(" ").slice(1).join(" ") : "") || "";
   const roleValue = (() => {
     const candidates = [lead.role, rp.role];
     for (const c of candidates) {
