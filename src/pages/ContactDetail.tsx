@@ -263,7 +263,10 @@ export default function ContactDetail() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="sm:col-span-2"><ReadOnly label="Address" value={lead.address} /></div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <ReadOnly label="Event date" value={lead.event_date} />
             <ReadOnly label="Registration group ID" value={lead.registration_group_id ?? null} />
