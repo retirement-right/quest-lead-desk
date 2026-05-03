@@ -221,6 +221,8 @@ export default function ContactDetail() {
       setSendingSms(false);
     }
   };
+
+  const onUpload = async (file: File) => {
     if (!id) return;
     setUploading(true);
     const safeName = file.name.replace(/[^\w.\-]+/g, "_");
