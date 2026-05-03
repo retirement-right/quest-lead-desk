@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, Users } from "lucide-react";
+import { Bell, LogOut, Users } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
@@ -21,6 +21,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Link to="/">
               <Button variant={loc.pathname === "/" ? "secondary" : "ghost"} size="sm">
                 <Users className="h-4 w-4" /> Contacts
+              </Button>
+            </Link>
+            <Link to="/follow-ups">
+              <Button variant={loc.pathname.startsWith("/follow-ups") ? "secondary" : "ghost"} size="sm">
+                <Bell className="h-4 w-4" /> Follow-ups
               </Button>
             </Link>
             <span className="text-xs text-muted-foreground hidden sm:inline ml-3 mr-2">{user?.email}</span>
