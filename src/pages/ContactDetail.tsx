@@ -97,6 +97,7 @@ export default function ContactDetail() {
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
+      do_not_email: !receivesNewsletter,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
