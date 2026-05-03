@@ -346,6 +346,121 @@ export default function ContactDetail() {
           </CardContent>
         </Card>
 
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Client Profile</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_children">Number of children</Label>
+              <Input
+                id="cp_children"
+                type="number"
+                min={0}
+                value={cpNumChildren}
+                onChange={(e) => setCpNumChildren(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_spouse">Spouse / partner name</Label>
+              <Input
+                id="cp_spouse"
+                value={cpSpouseName}
+                onChange={(e) => setCpSpouseName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Spouse birthdate</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !cpSpouseBirthdate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {cpSpouseBirthdate ? format(cpSpouseBirthdate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={cpSpouseBirthdate}
+                    onSelect={setCpSpouseBirthdate}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
+                    disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Retirement date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !cpRetirementDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {cpRetirementDate ? format(cpRetirementDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={cpRetirementDate}
+                    onSelect={setCpRetirementDate}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1950}
+                    toYear={2100}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estimated net worth</Label>
+              <Select value={cpNetWorth} onValueChange={setCpNetWorth}>
+                <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
+                <SelectContent>
+                  {NET_WORTH_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Primary concern</Label>
+              <Select value={cpPrimaryConcern} onValueChange={setCpPrimaryConcern}>
+                <SelectTrigger><SelectValue placeholder="Select concern" /></SelectTrigger>
+                <SelectContent>
+                  {PRIMARY_CONCERN_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="cp_notes">Additional notes</Label>
+              <Textarea
+                id="cp_notes"
+                rows={5}
+                value={cpAdditionalNotes}
+                onChange={(e) => setCpAdditionalNotes(e.target.value)}
+                placeholder="Anything else worth remembering…"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
           <CardContent>
