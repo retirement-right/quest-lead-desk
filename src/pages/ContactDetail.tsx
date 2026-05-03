@@ -355,9 +355,7 @@ export default function ContactDetail() {
                     mode="single"
                     selected={birthdate}
                     onSelect={setBirthdate}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1900}
-                    toYear={new Date().getFullYear()}
+                    defaultMonth={birthdate ?? new Date(1960, 0)}
                     disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
@@ -502,9 +500,7 @@ export default function ContactDetail() {
                     mode="single"
                     selected={cpSpouseBirthdate}
                     onSelect={setCpSpouseBirthdate}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1900}
-                    toYear={new Date().getFullYear()}
+                    defaultMonth={cpSpouseBirthdate ?? new Date(1960, 0)}
                     disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
@@ -532,9 +528,7 @@ export default function ContactDetail() {
                     mode="single"
                     selected={cpRetirementDate}
                     onSelect={setCpRetirementDate}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1950}
-                    toYear={2100}
+                    defaultMonth={cpRetirementDate ?? new Date()}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
