@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       const type = String(cp.followup_type || "").toLowerCase();
       const rp = (lead.raw_payload ?? {}) as Record<string, any>;
       const firstName = String(
-        lead.first_name || rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "",
+        rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "",
       ).trim();
 
       try {
