@@ -443,6 +443,28 @@ export default function ContactDetail() {
                 placeholder="What's the plan for this follow-up?"
               />
             </div>
+            <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="fu_auto">Auto-send when due</Label>
+                <p className="text-xs text-muted-foreground">
+                  When on, the system will automatically send the Email or SMS at the follow-up date.
+                  Call / In-Person types stay manual.
+                  {fuSentAt && (
+                    <span className="block mt-1 text-emerald-600">
+                      Last auto-sent: {new Date(fuSentAt).toLocaleString()}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <Switch
+                id="fu_auto"
+                checked={fuAutoSend}
+                onCheckedChange={(v) => {
+                  setFuAutoSend(v);
+                  if (v) setFuSentAt(null); // re-arm when toggled on
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 
