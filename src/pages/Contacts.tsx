@@ -165,6 +165,13 @@ export default function Contacts() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant={optOutOnly ? "default" : "outline"}
+            onClick={() => setOptOutOnly((v) => !v)}
+          >
+            Newsletter Opt-Out
+          </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Add Contact
