@@ -52,6 +52,11 @@ export default function ContactDetail() {
   const [notes, setNotes] = useState<string>("");
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
   const [receivesNewsletter, setReceivesNewsletter] = useState<boolean>(true);
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
 
   const loadDocs = async () => {
     if (!id) return;
