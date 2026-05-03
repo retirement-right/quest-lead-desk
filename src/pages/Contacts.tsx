@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const fullName = (l: Lead) => {
   const rp = (l as any).raw_payload;
