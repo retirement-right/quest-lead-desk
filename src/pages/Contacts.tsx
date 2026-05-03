@@ -216,6 +216,23 @@ export default function Contacts() {
     setDeleteTarget(null);
   };
 
+  const handleStatusChange = async (lead: Lead, newStatus: LeadStatus) => {
+    const prevStage = lead.lifecycle_stage;
+    const newStage = labelToStage(newStatus);
+    if (prevStage === newStage) return;
+    setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: newStage } : x)));
+    const { error } = await supabase
+      .from("leadjig_leads")
+      .update({ lifecycle_stage: newStage })
+      .eq("id", lead.id);
+    if (error) {
+      setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: prevStage } : x)));
+      toast.error(error.message);
+    } else {
+      toast.success("Status updated");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
