@@ -415,6 +415,53 @@ export default function ContactDetail() {
         </Card>
 
         <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Follow-up</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fu_date">Follow-up date</Label>
+              <Input
+                id="fu_date"
+                type="datetime-local"
+                value={fuDate}
+                onChange={(e) => setFuDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Follow-up type</Label>
+              <Select value={fuType} onValueChange={setFuType}>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {["Call", "Email", "SMS", "In Person"].map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Follow-up status</Label>
+              <Select value={fuStatus} onValueChange={setFuStatus}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  {["Pending", "Completed", "Cancelled"].map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="fu_notes">Follow-up notes</Label>
+              <Textarea
+                id="fu_notes"
+                rows={4}
+                value={fuNotes}
+                onChange={(e) => setFuNotes(e.target.value)}
+                placeholder="What's the plan for this follow-up?"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
           <CardHeader><CardTitle className="text-base">Client Profile</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
