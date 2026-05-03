@@ -61,6 +61,8 @@ export default function Contacts() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const PAGE_SIZE = 50;
 
   const loadLeads = async () => {
