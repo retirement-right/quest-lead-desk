@@ -462,59 +462,24 @@ export default function ContactDetail() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Spouse birthdate</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !cpSpouseBirthdate && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {cpSpouseBirthdate ? format(cpSpouseBirthdate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={cpSpouseBirthdate}
-                    onSelect={setCpSpouseBirthdate}
-                    defaultMonth={cpSpouseBirthdate ?? new Date(1960, 0)}
-                    disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="cp_spouse_bd">Spouse birthdate</Label>
+              <DateInput
+                id="cp_spouse_bd"
+                value={cpSpouseBirthdate}
+                onChange={setCpSpouseBirthdate}
+                disableFuture
+                fromYear={1900}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label>Retirement date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !cpRetirementDate && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {cpRetirementDate ? format(cpRetirementDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={cpRetirementDate}
-                    onSelect={setCpRetirementDate}
-                    defaultMonth={cpRetirementDate ?? new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="cp_retire">Retirement date</Label>
+              <DateInput
+                id="cp_retire"
+                value={cpRetirementDate}
+                onChange={setCpRetirementDate}
+                fromYear={1950}
+                toYear={2100}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Estimated net worth</Label>
