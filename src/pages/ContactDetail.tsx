@@ -299,10 +299,20 @@ export default function ContactDetail() {
             </div>
           </div>
         </div>
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save changes
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={onSendEmail} disabled={sendingEmail || !email.trim()}>
+            {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            Send Follow-up Email
+          </Button>
+          <Button variant="outline" onClick={onSendSms} disabled={sendingSms || !phone.trim()}>
+            {sendingSms ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+            Send SMS
+          </Button>
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save changes
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
