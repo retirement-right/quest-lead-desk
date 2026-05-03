@@ -81,6 +81,7 @@ export default function ContactDetail() {
         setAppointment(toLocalInput(l.appointment_at));
         setNotes(l.notes ?? "");
         setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
+        setReceivesNewsletter(!l.do_not_email);
       }
       await loadDocs();
       setLoading(false);
