@@ -13,8 +13,9 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CalendarIcon, Download, Loader2, Save, Upload } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
 const BUCKET = "lead-documents";
 
@@ -67,6 +68,15 @@ export default function ContactDetail() {
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
 
+  // Follow-up fields
+  const [fuDate, setFuDate] = useState<string>(""); // datetime-local
+  const [fuType, setFuType] = useState<string>("");
+  const [fuNotes, setFuNotes] = useState<string>("");
+  const [fuStatus, setFuStatus] = useState<string>("Pending");
+
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+
   const loadDocs = async () => {
     if (!id) return;
     const { data, error } = await supabase
@@ -110,6 +120,10 @@ export default function ContactDetail() {
         setCpNetWorth(cp.net_worth ?? "");
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
+        setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
+        setFuType(cp.followup_type ?? "");
+        setFuNotes(cp.followup_notes ?? "");
+        setFuStatus(cp.followup_status ?? "Pending");
       }
       await loadDocs();
       setLoading(false);
@@ -147,6 +161,10 @@ export default function ContactDetail() {
         net_worth: cpNetWorth || null,
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
+        followup_date: fuDate ? new Date(fuDate).toISOString() : null,
+        followup_type: fuType || null,
+        followup_notes: fuNotes || null,
+        followup_status: fuStatus || null,
       },
     };
     const { data, error } = await supabase
