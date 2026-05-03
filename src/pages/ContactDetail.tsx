@@ -52,6 +52,11 @@ export default function ContactDetail() {
   const [notes, setNotes] = useState<string>("");
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
   const [receivesNewsletter, setReceivesNewsletter] = useState<boolean>(true);
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
 
   const loadDocs = async () => {
     if (!id) return;
@@ -82,6 +87,12 @@ export default function ContactDetail() {
         setNotes(l.notes ?? "");
         setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
         setReceivesNewsletter(!l.do_not_email);
+        const rp = (l.raw_payload ?? {}) as Record<string, any>;
+        setFirstName(l.first_name || rp.first_name || (l.name ? String(l.name).split(" ")[0] : "") || "");
+        setLastName(l.last_name || rp.last_name || (l.name ? String(l.name).split(" ").slice(1).join(" ") : "") || "");
+        setEmail(l.email ?? "");
+        setPhone(l.phone ?? "");
+        setAddress(l.address ?? "");
       }
       await loadDocs();
       setLoading(false);
@@ -98,6 +109,11 @@ export default function ContactDetail() {
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
       do_not_email: !receivesNewsletter,
+      first_name: firstName.trim() || null,
+      last_name: lastName.trim() || null,
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      address: address.trim() || null,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
@@ -167,8 +183,6 @@ export default function ContactDetail() {
   }
 
   const rp = (lead.raw_payload ?? {}) as Record<string, any>;
-  const firstName = lead.first_name || rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "";
-  const lastName = lead.last_name || rp.last_name || (lead.name ? String(lead.name).split(" ").slice(1).join(" ") : "") || "";
   const roleValue = (() => {
     const candidates = [lead.role, rp.role];
     for (const c of candidates) {
@@ -203,10 +217,22 @@ export default function ContactDetail() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Contact details</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <ReadOnly label="First name" value={firstName} />
-            <ReadOnly label="Last name" value={lastName} />
-            <ReadOnly label="Email" value={lead.email} />
-            <ReadOnly label="Phone" value={lead.phone} />
+            <div className="space-y-1.5">
+              <Label htmlFor="first_name">First name</Label>
+              <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="last_name">Last name</Label>
+              <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-muted-foreground">Birthdate</Label>
               <Popover>
@@ -237,7 +263,10 @@ export default function ContactDetail() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="sm:col-span-2"><ReadOnly label="Address" value={lead.address} /></div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <ReadOnly label="Event date" value={lead.event_date} />
             <ReadOnly label="Registration group ID" value={lead.registration_group_id ?? null} />
