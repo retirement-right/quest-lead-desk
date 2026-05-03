@@ -80,13 +80,13 @@ export default function ContactDetail() {
 
   const loadDocs = async () => {
     if (!id) return;
-    const { data, error } = await supabase
-      .from("lead_documents")
+    const { data, error } = await cloudSupabase
+      .from("lead_documents" as any)
       .select("*")
       .eq("lead_id", id)
       .order("uploaded_at", { ascending: false });
     if (error) toast.error(error.message);
-    else setDocs((data ?? []) as LeadDocument[]);
+    else setDocs((data ?? []) as unknown as LeadDocument[]);
   };
 
   useEffect(() => {
@@ -232,16 +232,18 @@ export default function ContactDetail() {
     setUploading(true);
     const safeName = file.name.replace(/[^\w.\-]+/g, "_");
     const path = `${id}/${Date.now()}-${safeName}`;
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file);
+    const { error: upErr } = await cloudSupabase.storage.from(BUCKET).upload(path, file);
     if (upErr) {
       setUploading(false);
       toast.error(upErr.message);
       return;
     }
-    const { error: insErr } = await supabase.from("lead_documents").insert({
+    const { data: { user } } = await cloudSupabase.auth.getUser();
+    const { error: insErr } = await cloudSupabase.from("lead_documents" as any).insert({
       lead_id: id,
       file_name: file.name,
       file_path: path,
+      uploaded_by: user?.id ?? null,
     });
     setUploading(false);
     if (insErr) {
@@ -253,7 +255,7 @@ export default function ContactDetail() {
   };
 
   const onDownload = async (doc: LeadDocument) => {
-    const { data, error } = await supabase.storage
+    const { data, error } = await cloudSupabase.storage
       .from(BUCKET)
       .createSignedUrl(doc.file_path, 60);
     if (error || !data) {
