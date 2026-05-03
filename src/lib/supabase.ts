@@ -38,6 +38,7 @@ export interface Lead {
   is_guest?: boolean | null;
   date_of_birth?: string | null;
   role?: string | null;
+  do_not_email?: boolean | null;
 }
 
 export interface LeadDocument {
