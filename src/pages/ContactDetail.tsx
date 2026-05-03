@@ -400,7 +400,13 @@ export default function ContactDetail() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader><CardTitle className="text-base">Follow-up</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Follow-up</CardTitle>
+            <Button size="sm" onClick={onSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save follow-up
+            </Button>
+          </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="fu_date">Follow-up date</Label>

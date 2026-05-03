@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     // Pull a reasonable batch. Filter in JS since fields live in JSONB.
     const { data, error } = await sb
       .from("leadjig_leads")
-      .select("id, name, first_name, email, phone, raw_payload, client_profile, do_not_email")
+      .select("id, name, email, phone, raw_payload, client_profile, do_not_email")
       .limit(1000);
 
     if (error) throw new Error(`query leads: ${error.message}`);
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       const type = String(cp.followup_type || "").toLowerCase();
       const rp = (lead.raw_payload ?? {}) as Record<string, any>;
       const firstName = String(
-        lead.first_name || rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "",
+        rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "",
       ).trim();
 
       try {
