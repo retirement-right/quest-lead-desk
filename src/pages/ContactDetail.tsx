@@ -72,6 +72,8 @@ export default function ContactDetail() {
   const [fuType, setFuType] = useState<string>("");
   const [fuNotes, setFuNotes] = useState<string>("");
   const [fuStatus, setFuStatus] = useState<string>("Pending");
+  const [fuAutoSend, setFuAutoSend] = useState<boolean>(false);
+  const [fuSentAt, setFuSentAt] = useState<string | null>(null);
 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
@@ -123,6 +125,8 @@ export default function ContactDetail() {
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
         setFuStatus(cp.followup_status ?? "Pending");
+        setFuAutoSend(!!cp.followup_auto_send);
+        setFuSentAt(cp.followup_sent_at ?? null);
       }
       await loadDocs();
       setLoading(false);
@@ -164,6 +168,8 @@ export default function ContactDetail() {
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
         followup_status: fuStatus || null,
+        followup_auto_send: fuAutoSend,
+        followup_sent_at: fuSentAt,
       },
     };
     const { data, error } = await supabase
@@ -435,6 +441,28 @@ export default function ContactDetail() {
                 value={fuNotes}
                 onChange={(e) => setFuNotes(e.target.value)}
                 placeholder="What's the plan for this follow-up?"
+              />
+            </div>
+            <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="fu_auto">Auto-send when due</Label>
+                <p className="text-xs text-muted-foreground">
+                  When on, the system will automatically send the Email or SMS at the follow-up date.
+                  Call / In-Person types stay manual.
+                  {fuSentAt && (
+                    <span className="block mt-1 text-emerald-600">
+                      Last auto-sent: {new Date(fuSentAt).toLocaleString()}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <Switch
+                id="fu_auto"
+                checked={fuAutoSend}
+                onCheckedChange={(v) => {
+                  setFuAutoSend(v);
+                  if (v) setFuSentAt(null); // re-arm when toggled on
+                }}
               />
             </div>
           </CardContent>
