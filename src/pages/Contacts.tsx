@@ -302,17 +302,65 @@ export default function Contacts() {
                 </TableCell>
               </TableRow>
             ) : (
-              pageLeads.map((l) => (
+              pageLeads.map((l) => {
+                const fu = followUpState(l);
+                const currentStatus = stageToLabel(l.lifecycle_stage);
+                return (
                 <TableRow key={l.id} className="cursor-pointer">
                   <TableCell className="font-medium">
-                    <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                    <div className="flex items-center gap-2">
+                      {fu && (
+                        <span
+                          className={cn(
+                            "inline-block h-2.5 w-2.5 rounded-full shrink-0",
+                            fu === "overdue" ? "bg-destructive" : "bg-status-appointment",
+                          )}
+                          title={fu === "overdue" ? "Follow-up overdue" : "Follow-up due today"}
+                          aria-label={fu === "overdue" ? "Follow-up overdue" : "Follow-up due today"}
+                        />
+                      )}
+                      <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={stageToLabel(l.lifecycle_stage)} />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                            className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring"
+                            aria-label="Change status"
+                          >
+                            <StatusBadge status={currentStatus} className="cursor-pointer hover:opacity-80 transition-opacity" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-44 p-1" align="start">
+                          <div className="flex flex-col">
+                            {STATUS_OPTIONS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleStatusChange(l, s);
+                                  (document.activeElement as HTMLElement)?.blur();
+                                }}
+                                className={cn(
+                                  "flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm hover:bg-accent text-left",
+                                  s === currentStatus && "bg-accent/60",
+                                )}
+                              >
+                                <StatusBadge status={s} />
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -329,7 +377,8 @@ export default function Contacts() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
