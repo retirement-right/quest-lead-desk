@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const fullName = (l: Lead) => {
@@ -50,16 +50,34 @@ export default function Contacts() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const loadLeads = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("leadjig_leads")
-      .select("*")
-      .order("created_at", { ascending: false, nullsFirst: false });
-    if (error) toast.error(error.message);
-    else {
-      const all = (data ?? []) as Lead[];
+    const CHUNK = 1000;
+    let from = 0;
+    const all: Lead[] = [];
+    let firstError: string | null = null;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from("leadjig_leads")
+        .select("*")
+        .order("created_at", { ascending: false, nullsFirst: false })
+        .range(from, from + CHUNK - 1);
+      if (error) {
+        firstError = error.message;
+        break;
+      }
+      const batch = (data ?? []) as Lead[];
+      all.push(...batch);
+      if (batch.length < CHUNK) break;
+      from += CHUNK;
+    }
+    if (firstError) {
+      toast.error(firstError);
+    } else {
       const seen = new Set<string>();
       const deduped: Lead[] = [];
       for (const l of all) {
@@ -77,6 +95,10 @@ export default function Contacts() {
     loadLeads();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [q, status, optOutOnly]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
@@ -93,7 +115,13 @@ export default function Contacts() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
-  }, [leads, q, status]);
+  }, [leads, q, status, optOutOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
+  const pageLeads = filtered.slice(startIdx, endIdx);
 
   const handleSave = async () => {
     const first = form.first_name.trim();
@@ -144,7 +172,11 @@ export default function Contacts() {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} of {leads.length} leads</p>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length === 0
+              ? `0 of ${leads.length.toLocaleString()} leads`
+              : `Showing ${(startIdx + 1).toLocaleString()}–${endIdx.toLocaleString()} of ${filtered.length.toLocaleString()}${filtered.length !== leads.length ? ` (filtered from ${leads.length.toLocaleString()})` : ""}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -204,7 +236,7 @@ export default function Contacts() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((l) => (
+              pageLeads.map((l) => (
                 <TableRow key={l.id} className="cursor-pointer">
                   <TableCell className="font-medium">
                     <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
@@ -219,6 +251,34 @@ export default function Contacts() {
           </TableBody>
         </Table>
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(emptyForm); }}>
         <DialogContent className="max-w-lg">
