@@ -150,9 +150,13 @@ export default function Contacts() {
     }
 
     setSaving(true);
+    const combinedName = [first, last].filter(Boolean).join(" ") || null;
     const payload: Record<string, any> = {
-      first_name: first || null,
-      last_name: last || null,
+      name: combinedName,
+      raw_payload: {
+        first_name: first || null,
+        last_name: last || null,
+      },
       email: email || null,
       phone: form.phone.trim() || null,
       address: form.address.trim() || null,
