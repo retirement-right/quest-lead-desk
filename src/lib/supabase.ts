@@ -39,7 +39,25 @@ export interface Lead {
   date_of_birth?: string | null;
   role?: string | null;
   do_not_email?: boolean | null;
+  client_profile?: Record<string, any> | null;
 }
+
+export const NET_WORTH_OPTIONS = [
+  "Under $250k",
+  "$250k-$500k",
+  "$500k-$1m",
+  "$1m-$2m",
+  "$2m+",
+] as const;
+
+export const PRIMARY_CONCERN_OPTIONS = [
+  "Social Security",
+  "RMDs",
+  "Investment Risk",
+  "Estate Planning",
+  "Tax Strategy",
+  "Other",
+] as const;
 
 export interface LeadDocument {
   id: string;

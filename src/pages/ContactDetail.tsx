@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage } from "@/lib/supabase";
+import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage, NET_WORTH_OPTIONS, PRIMARY_CONCERN_OPTIONS } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,15 @@ export default function ContactDetail() {
   const [phone, setPhone] = useState<string>("");
   const [address, setAddress] = useState<string>("");
 
+  // Client profile fields
+  const [cpNumChildren, setCpNumChildren] = useState<string>("");
+  const [cpSpouseName, setCpSpouseName] = useState<string>("");
+  const [cpSpouseBirthdate, setCpSpouseBirthdate] = useState<Date | undefined>(undefined);
+  const [cpRetirementDate, setCpRetirementDate] = useState<Date | undefined>(undefined);
+  const [cpNetWorth, setCpNetWorth] = useState<string>("");
+  const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
+  const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
+
   const loadDocs = async () => {
     if (!id) return;
     const { data, error } = await supabase
@@ -93,6 +102,14 @@ export default function ContactDetail() {
         setEmail(l.email ?? "");
         setPhone(l.phone ?? "");
         setAddress(l.address ?? "");
+        const cp = (l.client_profile ?? {}) as Record<string, any>;
+        setCpNumChildren(cp.num_children != null ? String(cp.num_children) : "");
+        setCpSpouseName(cp.spouse_name ?? "");
+        setCpSpouseBirthdate(cp.spouse_birthdate ? parseISO(cp.spouse_birthdate) : undefined);
+        setCpRetirementDate(cp.retirement_date ? parseISO(cp.retirement_date) : undefined);
+        setCpNetWorth(cp.net_worth ?? "");
+        setCpPrimaryConcern(cp.primary_concern ?? "");
+        setCpAdditionalNotes(cp.additional_notes ?? "");
       }
       await loadDocs();
       setLoading(false);
@@ -122,6 +139,15 @@ export default function ContactDetail() {
       phone: phone.trim() || null,
       address: address.trim() || null,
       raw_payload: mergedRaw,
+      client_profile: {
+        num_children: cpNumChildren !== "" ? Number(cpNumChildren) : null,
+        spouse_name: cpSpouseName.trim() || null,
+        spouse_birthdate: cpSpouseBirthdate ? format(cpSpouseBirthdate, "yyyy-MM-dd") : null,
+        retirement_date: cpRetirementDate ? format(cpRetirementDate, "yyyy-MM-dd") : null,
+        net_worth: cpNetWorth || null,
+        primary_concern: cpPrimaryConcern || null,
+        additional_notes: cpAdditionalNotes || null,
+      },
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
@@ -315,6 +341,121 @@ export default function ContactDetail() {
                 id="newsletter"
                 checked={receivesNewsletter}
                 onCheckedChange={setReceivesNewsletter}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Client Profile</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_children">Number of children</Label>
+              <Input
+                id="cp_children"
+                type="number"
+                min={0}
+                value={cpNumChildren}
+                onChange={(e) => setCpNumChildren(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_spouse">Spouse / partner name</Label>
+              <Input
+                id="cp_spouse"
+                value={cpSpouseName}
+                onChange={(e) => setCpSpouseName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Spouse birthdate</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !cpSpouseBirthdate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {cpSpouseBirthdate ? format(cpSpouseBirthdate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={cpSpouseBirthdate}
+                    onSelect={setCpSpouseBirthdate}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
+                    disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Retirement date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !cpRetirementDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {cpRetirementDate ? format(cpRetirementDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={cpRetirementDate}
+                    onSelect={setCpRetirementDate}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1950}
+                    toYear={2100}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estimated net worth</Label>
+              <Select value={cpNetWorth} onValueChange={setCpNetWorth}>
+                <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
+                <SelectContent>
+                  {NET_WORTH_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Primary concern</Label>
+              <Select value={cpPrimaryConcern} onValueChange={setCpPrimaryConcern}>
+                <SelectTrigger><SelectValue placeholder="Select concern" /></SelectTrigger>
+                <SelectContent>
+                  {PRIMARY_CONCERN_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="cp_notes">Additional notes</Label>
+              <Textarea
+                id="cp_notes"
+                rows={5}
+                value={cpAdditionalNotes}
+                onChange={(e) => setCpAdditionalNotes(e.target.value)}
+                placeholder="Anything else worth remembering…"
               />
             </div>
           </CardContent>
