@@ -46,6 +46,7 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
+  const [optOutOnly, setOptOutOnly] = useState(false);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -80,6 +81,7 @@ export default function Contacts() {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
       if (status !== "all" && stageToLabel(l.lifecycle_stage) !== status) return false;
+      if (optOutOnly && !l.do_not_email) return false;
       if (!needle) return true;
       return [
         fullName(l),
@@ -163,6 +165,13 @@ export default function Contacts() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant={optOutOnly ? "default" : "outline"}
+            onClick={() => setOptOutOnly((v) => !v)}
+          >
+            Newsletter Opt-Out
+          </Button>
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Add Contact

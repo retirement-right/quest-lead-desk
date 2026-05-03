@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export default function ContactDetail() {
   const [appointment, setAppointment] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
+  const [receivesNewsletter, setReceivesNewsletter] = useState<boolean>(true);
 
   const loadDocs = async () => {
     if (!id) return;
@@ -79,6 +81,7 @@ export default function ContactDetail() {
         setAppointment(toLocalInput(l.appointment_at));
         setNotes(l.notes ?? "");
         setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
+        setReceivesNewsletter(!l.do_not_email);
       }
       await loadDocs();
       setLoading(false);
@@ -94,6 +97,7 @@ export default function ContactDetail() {
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
+      do_not_email: !receivesNewsletter,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
@@ -263,6 +267,17 @@ export default function ContactDetail() {
                 type="datetime-local"
                 value={appointment}
                 onChange={(e) => setAppointment(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="newsletter">Receives Newsletter</Label>
+                <p className="text-xs text-muted-foreground">Turn off to opt out of email.</p>
+              </div>
+              <Switch
+                id="newsletter"
+                checked={receivesNewsletter}
+                onCheckedChange={setReceivesNewsletter}
               />
             </div>
           </CardContent>
