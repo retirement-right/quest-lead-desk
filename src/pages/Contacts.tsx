@@ -172,7 +172,11 @@ export default function Contacts() {
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} of {leads.length} leads</p>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length === 0
+              ? `0 of ${leads.length.toLocaleString()} leads`
+              : `Showing ${(startIdx + 1).toLocaleString()}–${endIdx.toLocaleString()} of ${filtered.length.toLocaleString()}${filtered.length !== leads.length ? ` (filtered from ${leads.length.toLocaleString()})` : ""}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -232,7 +236,7 @@ export default function Contacts() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((l) => (
+              pageLeads.map((l) => (
                 <TableRow key={l.id} className="cursor-pointer">
                   <TableCell className="font-medium">
                     <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
@@ -247,6 +251,34 @@ export default function Contacts() {
           </TableBody>
         </Table>
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(emptyForm); }}>
         <DialogContent className="max-w-lg">
