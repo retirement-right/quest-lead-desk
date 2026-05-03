@@ -249,18 +249,19 @@ export default function Contacts() {
               <TableHead>Phone</TableHead>
               <TableHead>Event</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center">
+                <TableCell colSpan={6} className="h-32 text-center">
                   <Loader2 className="h-5 w-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -274,6 +275,21 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell><StatusBadge status={stageToLabel(l.lifecycle_stage)} /></TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setDeleteTarget(l);
+                      }}
+                      aria-label="Delete contact"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
