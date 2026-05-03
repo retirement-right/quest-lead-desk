@@ -102,6 +102,14 @@ export default function ContactDetail() {
         setEmail(l.email ?? "");
         setPhone(l.phone ?? "");
         setAddress(l.address ?? "");
+        const cp = (l.client_profile ?? {}) as Record<string, any>;
+        setCpNumChildren(cp.num_children != null ? String(cp.num_children) : "");
+        setCpSpouseName(cp.spouse_name ?? "");
+        setCpSpouseBirthdate(cp.spouse_birthdate ? parseISO(cp.spouse_birthdate) : undefined);
+        setCpRetirementDate(cp.retirement_date ? parseISO(cp.retirement_date) : undefined);
+        setCpNetWorth(cp.net_worth ?? "");
+        setCpPrimaryConcern(cp.primary_concern ?? "");
+        setCpAdditionalNotes(cp.additional_notes ?? "");
       }
       await loadDocs();
       setLoading(false);
