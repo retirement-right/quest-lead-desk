@@ -273,21 +273,23 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
-                  <TableCell><StatusBadge status={stageToLabel(l.lifecycle_stage)} /></TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setDeleteTarget(l);
-                      }}
-                      aria-label="Delete contact"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={stageToLabel(l.lifecycle_stage)} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setDeleteTarget(l);
+                        }}
+                        aria-label="Delete contact"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
