@@ -81,6 +81,7 @@ export default function Contacts() {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
       if (status !== "all" && stageToLabel(l.lifecycle_stage) !== status) return false;
+      if (optOutOnly && !l.do_not_email) return false;
       if (!needle) return true;
       return [
         fullName(l),
