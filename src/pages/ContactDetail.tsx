@@ -217,10 +217,22 @@ export default function ContactDetail() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Contact details</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <ReadOnly label="First name" value={firstName} />
-            <ReadOnly label="Last name" value={lastName} />
-            <ReadOnly label="Email" value={lead.email} />
-            <ReadOnly label="Phone" value={lead.phone} />
+            <div className="space-y-1.5">
+              <Label htmlFor="first_name">First name</Label>
+              <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="last_name">Last name</Label>
+              <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-muted-foreground">Birthdate</Label>
               <Popover>
