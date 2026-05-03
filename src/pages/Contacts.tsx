@@ -40,6 +40,23 @@ const fullName = (l: Lead) => {
   return "—";
 };
 
+type FollowUpState = "overdue" | "today" | null;
+
+const followUpState = (l: Lead): FollowUpState => {
+  const fu = (l.client_profile as any)?.followUp;
+  if (!fu?.date) return null;
+  if (fu.status && fu.status !== "Pending") return null;
+  const due = new Date(fu.date);
+  if (isNaN(due.getTime())) return null;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  if (due < startOfToday) return "overdue";
+  if (due < startOfTomorrow) return "today";
+  return null;
+};
+
 const emptyForm = {
   first_name: "",
   last_name: "",
