@@ -179,6 +179,23 @@ export default function Contacts() {
     if (data) setLeads((prev) => [data as Lead, ...prev]);
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from("leadjig_leads")
+      .delete()
+      .eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLeads((prev) => prev.filter((l) => l.id !== deleteTarget.id));
+    toast.success("Contact deleted");
+    setDeleteTarget(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
