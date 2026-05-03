@@ -34,7 +34,18 @@ export default function Contacts() {
         .select("*")
         .order("created_at", { ascending: false, nullsFirst: false });
       if (error) toast.error(error.message);
-      else setLeads((data ?? []) as Lead[]);
+      else {
+        const all = (data ?? []) as Lead[];
+        const seen = new Set<string>();
+        const deduped: Lead[] = [];
+        for (const l of all) {
+          const key = l.email ? l.email.trim().toLowerCase() : `__no_email__:${l.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(l);
+        }
+        setLeads(deduped);
+      }
       setLoading(false);
     })();
   }, []);
