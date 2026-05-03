@@ -79,10 +79,9 @@ Deno.serve(async (req) => {
     const { data, error } = await sb
       .from("leadjig_leads")
       .select("id, name, first_name, email, phone, raw_payload, client_profile, do_not_email")
-      .not("client_profile", "is", null)
-      .limit(500);
+      .limit(1000);
 
-    if (error) throw error;
+    if (error) throw new Error(`query leads: ${error.message}`);
 
     for (const lead of data ?? []) {
       const cp = (lead.client_profile ?? {}) as Record<string, any>;
@@ -138,7 +137,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
+    const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
     console.error("process-followups fatal:", msg);
     return new Response(JSON.stringify({ success: false, error: msg, ...summary }), {
       status: 500,
