@@ -269,6 +269,17 @@ export default function ContactDetail() {
                 onChange={(e) => setAppointment(e.target.value)}
               />
             </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="newsletter">Receives Newsletter</Label>
+                <p className="text-xs text-muted-foreground">Turn off to opt out of email.</p>
+              </div>
+              <Switch
+                id="newsletter"
+                checked={receivesNewsletter}
+                onCheckedChange={setReceivesNewsletter}
+              />
+            </div>
           </CardContent>
         </Card>
 
