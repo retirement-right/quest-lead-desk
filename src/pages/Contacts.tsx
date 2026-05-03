@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const fullName = (l: Lead) => {
@@ -50,16 +50,34 @@ export default function Contacts() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   const loadLeads = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("leadjig_leads")
-      .select("*")
-      .order("created_at", { ascending: false, nullsFirst: false });
-    if (error) toast.error(error.message);
-    else {
-      const all = (data ?? []) as Lead[];
+    const CHUNK = 1000;
+    let from = 0;
+    const all: Lead[] = [];
+    let firstError: string | null = null;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from("leadjig_leads")
+        .select("*")
+        .order("created_at", { ascending: false, nullsFirst: false })
+        .range(from, from + CHUNK - 1);
+      if (error) {
+        firstError = error.message;
+        break;
+      }
+      const batch = (data ?? []) as Lead[];
+      all.push(...batch);
+      if (batch.length < CHUNK) break;
+      from += CHUNK;
+    }
+    if (firstError) {
+      toast.error(firstError);
+    } else {
       const seen = new Set<string>();
       const deduped: Lead[] = [];
       for (const l of all) {
@@ -77,6 +95,10 @@ export default function Contacts() {
     loadLeads();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [q, status, optOutOnly]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
@@ -93,7 +115,13 @@ export default function Contacts() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
-  }, [leads, q, status]);
+  }, [leads, q, status, optOutOnly]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
+  const pageLeads = filtered.slice(startIdx, endIdx);
 
   const handleSave = async () => {
     const first = form.first_name.trim();
