@@ -59,16 +59,18 @@ export const STATUS_OPTIONS: LeadStatus[] = [
 const DB_TO_LABEL: Record<string, LeadStatus> = {
   new: "Prospect",
   prospect: "Prospect",
+  consultation_booked: "Appointment Set",
   appointment_set: "Appointment Set",
   client: "Client",
+  lost: "Not Interested",
   not_interested: "Not Interested",
 };
 
 const LABEL_TO_DB: Record<LeadStatus, string> = {
-  Prospect: "prospect",
-  "Appointment Set": "appointment_set",
+  Prospect: "new",
+  "Appointment Set": "consultation_booked",
   Client: "client",
-  "Not Interested": "not_interested",
+  "Not Interested": "lost",
 };
 
 export const stageToLabel = (stage?: string | null): LeadStatus => {
