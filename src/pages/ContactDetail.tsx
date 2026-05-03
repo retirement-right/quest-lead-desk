@@ -72,6 +72,8 @@ export default function ContactDetail() {
   const [fuType, setFuType] = useState<string>("");
   const [fuNotes, setFuNotes] = useState<string>("");
   const [fuStatus, setFuStatus] = useState<string>("Pending");
+  const [fuAutoSend, setFuAutoSend] = useState<boolean>(false);
+  const [fuSentAt, setFuSentAt] = useState<string | null>(null);
 
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
@@ -123,6 +125,8 @@ export default function ContactDetail() {
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
         setFuStatus(cp.followup_status ?? "Pending");
+        setFuAutoSend(!!cp.followup_auto_send);
+        setFuSentAt(cp.followup_sent_at ?? null);
       }
       await loadDocs();
       setLoading(false);
@@ -164,6 +168,8 @@ export default function ContactDetail() {
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
         followup_status: fuStatus || null,
+        followup_auto_send: fuAutoSend,
+        followup_sent_at: fuSentAt,
       },
     };
     const { data, error } = await supabase
