@@ -249,7 +249,6 @@ export default function Contacts() {
               <TableHead>Phone</TableHead>
               <TableHead>Event</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
