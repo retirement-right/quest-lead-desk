@@ -103,17 +103,25 @@ export default function ContactDetail() {
   const onSave = async () => {
     if (!id) return;
     setSaving(true);
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const combinedName = [fn, ln].filter(Boolean).join(" ") || null;
+    const mergedRaw = {
+      ...((lead?.raw_payload ?? {}) as Record<string, any>),
+      first_name: fn || null,
+      last_name: ln || null,
+    };
     const payload = {
       lifecycle_stage: status ? labelToStage(status) : null,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
       do_not_email: !receivesNewsletter,
-      first_name: firstName.trim() || null,
-      last_name: lastName.trim() || null,
+      name: combinedName,
       email: email.trim() || null,
       phone: phone.trim() || null,
       address: address.trim() || null,
+      raw_payload: mergedRaw,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
