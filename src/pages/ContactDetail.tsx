@@ -182,7 +182,45 @@ export default function ContactDetail() {
     toast.success("Contact saved");
   };
 
-  const onUpload = async (file: File) => {
+  const onSendEmail = async () => {
+    if (!email.trim()) {
+      toast.error("This contact has no email address");
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const { data, error } = await cloudSupabase.functions.invoke("send-followup-email", {
+        body: { to: email.trim(), firstName: firstName.trim() },
+      });
+      if (error) throw error;
+      if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
+      toast.success("Follow-up email sent");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const onSendSms = async () => {
+    if (!phone.trim()) {
+      toast.error("This contact has no phone number");
+      return;
+    }
+    setSendingSms(true);
+    try {
+      const { data, error } = await cloudSupabase.functions.invoke("send-followup-sms", {
+        body: { to: phone.trim(), firstName: firstName.trim() },
+      });
+      if (error) throw error;
+      if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
+      toast.success("Follow-up SMS sent");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send SMS");
+    } finally {
+      setSendingSms(false);
+    }
+  };
     if (!id) return;
     setUploading(true);
     const safeName = file.name.replace(/[^\w.\-]+/g, "_");
