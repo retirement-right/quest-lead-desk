@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronLeft, ChevronRight, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const fullName = (l: Lead) => {
   const rp = (l as any).raw_payload;
@@ -37,6 +39,23 @@ const fullName = (l: Lead) => {
   }
   if ((l as any).name) return (l as any).name as string;
   return "—";
+};
+
+type FollowUpState = "overdue" | "today" | null;
+
+const followUpState = (l: Lead): FollowUpState => {
+  const fu = (l.client_profile as any)?.followUp;
+  if (!fu?.date) return null;
+  if (fu.status && fu.status !== "Pending") return null;
+  const due = new Date(fu.date);
+  if (isNaN(due.getTime())) return null;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  if (due < startOfToday) return "overdue";
+  if (due < startOfTomorrow) return "today";
+  return null;
 };
 
 const emptyForm = {
@@ -198,6 +217,23 @@ export default function Contacts() {
     setDeleteTarget(null);
   };
 
+  const handleStatusChange = async (lead: Lead, newStatus: LeadStatus) => {
+    const prevStage = lead.lifecycle_stage;
+    const newStage = labelToStage(newStatus);
+    if (prevStage === newStage) return;
+    setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: newStage } : x)));
+    const { error } = await supabase
+      .from("leadjig_leads")
+      .update({ lifecycle_stage: newStage })
+      .eq("id", lead.id);
+    if (error) {
+      setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: prevStage } : x)));
+      toast.error(error.message);
+    } else {
+      toast.success("Status updated");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4 flex-wrap">
@@ -267,17 +303,65 @@ export default function Contacts() {
                 </TableCell>
               </TableRow>
             ) : (
-              pageLeads.map((l) => (
+              pageLeads.map((l) => {
+                const fu = followUpState(l);
+                const currentStatus = stageToLabel(l.lifecycle_stage);
+                return (
                 <TableRow key={l.id} className="cursor-pointer">
                   <TableCell className="font-medium">
-                    <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                    <div className="flex items-center gap-2">
+                      {fu && (
+                        <span
+                          className={cn(
+                            "inline-block h-2.5 w-2.5 rounded-full shrink-0",
+                            fu === "overdue" ? "bg-destructive" : "bg-status-appointment",
+                          )}
+                          title={fu === "overdue" ? "Follow-up overdue" : "Follow-up due today"}
+                          aria-label={fu === "overdue" ? "Follow-up overdue" : "Follow-up due today"}
+                        />
+                      )}
+                      <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={stageToLabel(l.lifecycle_stage)} />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                            className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring"
+                            aria-label="Change status"
+                          >
+                            <StatusBadge status={currentStatus} className="cursor-pointer hover:opacity-80 transition-opacity" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-44 p-1" align="start">
+                          <div className="flex flex-col">
+                            {STATUS_OPTIONS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleStatusChange(l, s);
+                                  (document.activeElement as HTMLElement)?.blur();
+                                }}
+                                className={cn(
+                                  "flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm hover:bg-accent text-left",
+                                  s === currentStatus && "bg-accent/60",
+                                )}
+                              >
+                                <StatusBadge status={s} />
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -294,7 +378,8 @@ export default function Contacts() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
