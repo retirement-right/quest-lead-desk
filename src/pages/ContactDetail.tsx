@@ -108,8 +108,8 @@ export default function ContactDetail() {
         setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
         setReceivesNewsletter(!l.do_not_email);
         const rp = (l.raw_payload ?? {}) as Record<string, any>;
-        setFirstName(l.first_name || rp.first_name || (l.name ? String(l.name).split(" ")[0] : "") || "");
-        setLastName(l.last_name || rp.last_name || (l.name ? String(l.name).split(" ").slice(1).join(" ") : "") || "");
+        setFirstName(rp.first_name || (l.name ? String(l.name).split(" ")[0] : "") || "");
+        setLastName(rp.last_name || (l.name ? String(l.name).split(" ").slice(1).join(" ") : "") || "");
         setEmail(l.email ?? "");
         setPhone(l.phone ?? "");
         setAddress(l.address ?? "");
