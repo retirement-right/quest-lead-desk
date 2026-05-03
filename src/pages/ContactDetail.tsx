@@ -139,6 +139,15 @@ export default function ContactDetail() {
       phone: phone.trim() || null,
       address: address.trim() || null,
       raw_payload: mergedRaw,
+      client_profile: {
+        num_children: cpNumChildren !== "" ? Number(cpNumChildren) : null,
+        spouse_name: cpSpouseName.trim() || null,
+        spouse_birthdate: cpSpouseBirthdate ? format(cpSpouseBirthdate, "yyyy-MM-dd") : null,
+        retirement_date: cpRetirementDate ? format(cpRetirementDate, "yyyy-MM-dd") : null,
+        net_worth: cpNetWorth || null,
+        primary_concern: cpPrimaryConcern || null,
+        additional_notes: cpAdditionalNotes || null,
+      },
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
