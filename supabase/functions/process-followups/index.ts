@@ -5,8 +5,7 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 // External Supabase (where leadjig_leads lives) — anon key, RLS-friendly
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
-const LEADJIG_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvbmVwbHlzdXZtYXlnYnJic3dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDgwNTgsImV4cCI6MjA4NzUyNDA1OH0.XORQ3mc7MIjaZzof4t3g11nXgtVuh45FRFTKasTJtt8";
+const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
 
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY")!;
 const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL")!;
