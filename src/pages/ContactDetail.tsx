@@ -109,6 +109,11 @@ export default function ContactDetail() {
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
       do_not_email: !receivesNewsletter,
+      first_name: firstName.trim() || null,
+      last_name: lastName.trim() || null,
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      address: address.trim() || null,
     };
     const { data, error } = await supabase
       .from("leadjig_leads")
