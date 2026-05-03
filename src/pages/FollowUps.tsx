@@ -21,8 +21,9 @@ interface FollowupRow {
 }
 
 const fullName = (l: Lead) => {
-  const direct = [l.first_name, l.last_name].filter(Boolean).join(" ");
-  if (direct) return direct;
+  const rp = (l.raw_payload ?? {}) as Record<string, any>;
+  const fromPayload = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
+  if (fromPayload) return fromPayload;
   if (l.name) return l.name;
   return "—";
 };
