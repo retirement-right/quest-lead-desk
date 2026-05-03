@@ -10,8 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -336,32 +335,14 @@ export default function ContactDetail() {
               <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Birthdate</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !birthdate && "text-muted-foreground",
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {birthdate ? format(birthdate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={birthdate}
-                    onSelect={setBirthdate}
-                    defaultMonth={birthdate ?? new Date(1960, 0)}
-                    disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="birthdate">Birthdate</Label>
+              <DateInput
+                id="birthdate"
+                value={birthdate}
+                onChange={setBirthdate}
+                disableFuture
+                fromYear={1900}
+              />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="address">Address</Label>
