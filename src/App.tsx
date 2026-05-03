@@ -8,6 +8,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import Login from "./pages/Login";
 import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
+import FollowUps from "./pages/FollowUps";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<RequireAuth><Contacts /></RequireAuth>} />
+            <Route path="/follow-ups" element={<RequireAuth><FollowUps /></RequireAuth>} />
             <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

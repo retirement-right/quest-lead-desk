@@ -13,8 +13,9 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CalendarIcon, Download, Loader2, Save, Upload } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
 const BUCKET = "lead-documents";
 
@@ -67,6 +68,15 @@ export default function ContactDetail() {
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
 
+  // Follow-up fields
+  const [fuDate, setFuDate] = useState<string>(""); // datetime-local
+  const [fuType, setFuType] = useState<string>("");
+  const [fuNotes, setFuNotes] = useState<string>("");
+  const [fuStatus, setFuStatus] = useState<string>("Pending");
+
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+
   const loadDocs = async () => {
     if (!id) return;
     const { data, error } = await supabase
@@ -110,6 +120,10 @@ export default function ContactDetail() {
         setCpNetWorth(cp.net_worth ?? "");
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
+        setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
+        setFuType(cp.followup_type ?? "");
+        setFuNotes(cp.followup_notes ?? "");
+        setFuStatus(cp.followup_status ?? "Pending");
       }
       await loadDocs();
       setLoading(false);
@@ -147,6 +161,10 @@ export default function ContactDetail() {
         net_worth: cpNetWorth || null,
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
+        followup_date: fuDate ? new Date(fuDate).toISOString() : null,
+        followup_type: fuType || null,
+        followup_notes: fuNotes || null,
+        followup_status: fuStatus || null,
       },
     };
     const { data, error } = await supabase
@@ -162,6 +180,46 @@ export default function ContactDetail() {
     }
     if (data) setLead(data as Lead);
     toast.success("Contact saved");
+  };
+
+  const onSendEmail = async () => {
+    if (!email.trim()) {
+      toast.error("This contact has no email address");
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const { data, error } = await cloudSupabase.functions.invoke("send-followup-email", {
+        body: { to: email.trim(), firstName: firstName.trim() },
+      });
+      if (error) throw error;
+      if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
+      toast.success("Follow-up email sent");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const onSendSms = async () => {
+    if (!phone.trim()) {
+      toast.error("This contact has no phone number");
+      return;
+    }
+    setSendingSms(true);
+    try {
+      const { data, error } = await cloudSupabase.functions.invoke("send-followup-sms", {
+        body: { to: phone.trim(), firstName: firstName.trim() },
+      });
+      if (error) throw error;
+      if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
+      toast.success("Follow-up SMS sent");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send SMS");
+    } finally {
+      setSendingSms(false);
+    }
   };
 
   const onUpload = async (file: File) => {
@@ -241,10 +299,20 @@ export default function ContactDetail() {
             </div>
           </div>
         </div>
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save changes
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={onSendEmail} disabled={sendingEmail || !email.trim()}>
+            {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            Send Follow-up Email
+          </Button>
+          <Button variant="outline" onClick={onSendSms} disabled={sendingSms || !phone.trim()}>
+            {sendingSms ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+            Send SMS
+          </Button>
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save changes
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -341,6 +409,53 @@ export default function ContactDetail() {
                 id="newsletter"
                 checked={receivesNewsletter}
                 onCheckedChange={setReceivesNewsletter}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Follow-up</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fu_date">Follow-up date</Label>
+              <Input
+                id="fu_date"
+                type="datetime-local"
+                value={fuDate}
+                onChange={(e) => setFuDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Follow-up type</Label>
+              <Select value={fuType} onValueChange={setFuType}>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {["Call", "Email", "SMS", "In Person"].map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Follow-up status</Label>
+              <Select value={fuStatus} onValueChange={setFuStatus}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  {["Pending", "Completed", "Cancelled"].map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="fu_notes">Follow-up notes</Label>
+              <Textarea
+                id="fu_notes"
+                rows={4}
+                value={fuNotes}
+                onChange={(e) => setFuNotes(e.target.value)}
+                placeholder="What's the plan for this follow-up?"
               />
             </div>
           </CardContent>
