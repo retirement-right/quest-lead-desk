@@ -17,7 +17,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search, StickyNote, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -285,6 +286,7 @@ export default function Contacts() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead>Event</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -292,13 +294,13 @@ export default function Contacts() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center">
+                <TableCell colSpan={6} className="h-32 text-center">
                   <Loader2 className="h-5 w-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -321,10 +323,21 @@ export default function Contacts() {
                         />
                       )}
                       <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                      {l.notes && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs whitespace-pre-wrap">{l.notes}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground max-w-[260px] truncate" title={l.address || ""}>{l.address || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
