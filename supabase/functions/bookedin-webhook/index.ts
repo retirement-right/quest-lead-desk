@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
-const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
+const LEADJIG_SERVICE_ROLE = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
 
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
 const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -97,7 +97,9 @@ Deno.serve(async (req) => {
   const apptDateIso = parseFlexibleDate(apptDateRaw);
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
-  const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
+  const sb = createClient(LEADJIG_URL, LEADJIG_SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   // 1) Log raw appointment
   const { data: logRow, error: logErr } = await cloud
