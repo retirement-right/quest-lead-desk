@@ -43,8 +43,10 @@
     --status-client-foreground: 210 40% 98%;
     --status-not-interested: 220 9% 55%;
     --status-not-interested-foreground: 210 40% 98%;
-    --status-appointment: 25 95% 53%;
-    --status-appointment-foreground: 210 40% 98%;
+   --status-appointment: 25 95% 53%;
+   --status-appointment-foreground: 210 40% 98%;
+   --status-cancelled: 0 84% 60%;
+   --status-cancelled-foreground: 210 40% 98%;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
