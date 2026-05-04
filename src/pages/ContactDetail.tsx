@@ -91,6 +91,17 @@ export default function ContactDetail() {
     else setDocs((data ?? []) as unknown as LeadDocument[]);
   };
 
+  const loadActivity = async () => {
+    if (!id) return;
+    const { data, error } = await cloudSupabase
+      .from("contact_activity" as any)
+      .select("*")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!error) setActivity((data ?? []) as any[]);
+  };
+
   useEffect(() => {
     if (!id) return;
     (async () => {
