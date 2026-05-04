@@ -111,16 +111,35 @@ Deno.serve(async (req) => {
   let processError: string | null = null;
   let proxyStatus: number | null = null;
   let proxyBody: unknown = null;
+  let skippedReason: string | null = null;
+
+  // Don't forward cancellation events for unknown contacts with no name —
+  // otherwise the proxy creates a blank-named "Cancelled" record. We still
+  // keep the raw entry in bookedin_appointments for audit.
+  const skipForward = status === "cancelled" && !name;
+
+  if (skipForward) {
+    skippedReason = "cancelled event with no contact name; not forwarded";
+  }
 
   try {
+    if (skipForward) throw new Error("__skip__");
+    const lifecycleStage =
+      status === "cancelled" ? "cancelled" : "consultation_booked";
+    const noteText =
+      status === "cancelled"
+        ? "Cancelled via BookedIN"
+        : status === "rescheduled"
+        ? "Rescheduled via BookedIN"
+        : "Booked via BookedIN";
     const body = {
       email,
       contact_name: name || null,
       contact_phone: phone || null,
-      lifecycle_stage: "consultation_booked",
+      lifecycle_stage: lifecycleStage,
       appointment_at: apptDateIso,
       booked_at: new Date().toISOString(),
-      notes: "Booked via BookedIN",
+      notes: noteText,
     };
 
     const resp = await fetch(LEADJIG_PROXY_URL, {
@@ -138,21 +157,26 @@ Deno.serve(async (req) => {
       throw new Error(`proxy ${resp.status}: ${text}`);
     }
   } catch (e) {
-    processError = e instanceof Error ? e.message : String(e);
-    console.error("proxy call failed", processError);
+    if (skipForward) {
+      // intentional skip — not a real error
+    } else {
+      processError = e instanceof Error ? e.message : String(e);
+      console.error("proxy call failed", processError);
+    }
   }
 
   await cloud
     .from("bookedin_appointments")
     .update({
       processed_at: new Date().toISOString(),
-      process_error: processError,
+      process_error: processError ?? skippedReason,
     })
     .eq("id", logRow.id);
 
   return new Response(
     JSON.stringify({
       success: !processError,
+      skipped: skippedReason,
       log_id: logRow.id,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
