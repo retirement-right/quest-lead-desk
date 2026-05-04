@@ -157,21 +157,26 @@ Deno.serve(async (req) => {
       throw new Error(`proxy ${resp.status}: ${text}`);
     }
   } catch (e) {
-    processError = e instanceof Error ? e.message : String(e);
-    console.error("proxy call failed", processError);
+    if (skipForward) {
+      // intentional skip — not a real error
+    } else {
+      processError = e instanceof Error ? e.message : String(e);
+      console.error("proxy call failed", processError);
+    }
   }
 
   await cloud
     .from("bookedin_appointments")
     .update({
       processed_at: new Date().toISOString(),
-      process_error: processError,
+      process_error: processError ?? skippedReason,
     })
     .eq("id", logRow.id);
 
   return new Response(
     JSON.stringify({
       success: !processError,
+      skipped: skippedReason,
       log_id: logRow.id,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
