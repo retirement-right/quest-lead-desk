@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookedin_appointments: {
+        Row: {
+          appointment_date: string | null
+          appointment_status: string
+          contact_email: string
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          process_error: string | null
+          processed_at: string | null
+          raw_payload: Json | null
+        }
+        Insert: {
+          appointment_date?: string | null
+          appointment_status: string
+          contact_email: string
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          process_error?: string | null
+          processed_at?: string | null
+          raw_payload?: Json | null
+        }
+        Update: {
+          appointment_date?: string | null
+          appointment_status?: string
+          contact_email?: string
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          process_error?: string | null
+          processed_at?: string | null
+          raw_payload?: Json | null
+        }
+        Relationships: []
+      }
       contact_activity: {
         Row: {
           body: string | null
