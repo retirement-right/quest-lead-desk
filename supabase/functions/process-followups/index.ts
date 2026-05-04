@@ -1,11 +1,16 @@
 // Scheduler: runs every minute (via pg_cron). Finds leads with an auto-send
-// follow-up that's due and not yet sent, then dispatches Email/SMS and marks sent.
+// follow-up that's due and not yet sent, then dispatches Email/SMS using the
+// admin-authored SMS/Email Message body, marks sent, and logs to contact_activity.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 // External Supabase (where leadjig_leads lives) — anon key, RLS-friendly
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
 const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
+
+// Lovable Cloud project (for activity log)
+const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
+const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY")!;
 const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL")!;
@@ -24,8 +29,14 @@ function normalizePhone(raw: string): string | null {
   return null;
 }
 
-async function sendEmail(to: string, firstName: string) {
-  const text = `Hi ${firstName || "there"}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
+function defaultEmailBody(firstName: string) {
+  return `Hi ${firstName || "there"}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
+}
+function defaultSmsBody(firstName: string) {
+  return `Hi ${firstName || "there"}, this is Michael from Retirement Right. Just checking in — give me a call at 480-726-8805 when you have a moment. Thank you!`;
+}
+
+async function sendEmail(to: string, body: string) {
   const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
     headers: {
@@ -36,7 +47,7 @@ async function sendEmail(to: string, firstName: string) {
       personalizations: [{ to: [{ email: to }] }],
       from: { email: SENDGRID_FROM_EMAIL, name: "Michael Eberhardt" },
       subject: "Following up on your retirement planning",
-      content: [{ type: "text/plain", value: text }],
+      content: [{ type: "text/plain", value: body }],
     }),
   });
   if (!res.ok) {
@@ -45,8 +56,7 @@ async function sendEmail(to: string, firstName: string) {
   }
 }
 
-async function sendSms(to: string, firstName: string) {
-  const text = `Hi ${firstName || "there"}, this is Michael from Retirement Right. Just checking in — give me a call at 480-726-8805 when you have a moment. Thank you!`;
+async function sendSms(to: string, body: string) {
   const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
@@ -56,7 +66,7 @@ async function sendSms(to: string, firstName: string) {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ To: to, From: TWILIO_PHONE_NUMBER, Body: text }),
+      body: new URLSearchParams({ To: to, From: TWILIO_PHONE_NUMBER, Body: body }),
     },
   );
   const data = await res.json();
@@ -72,9 +82,9 @@ Deno.serve(async (req) => {
 
   try {
     const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
+    const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
     const nowIso = new Date().toISOString();
 
-    // Pull a reasonable batch. Filter in JS since fields live in JSONB.
     const { data, error } = await sb
       .from("leadjig_leads")
       .select("id, name, email, phone, raw_payload, client_profile, do_not_email")
@@ -96,27 +106,38 @@ Deno.serve(async (req) => {
       const firstName = String(
         rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "",
       ).trim();
+      const customMessage = String(cp.followup_message || "").trim();
+
+      // Call / In-Person never auto-send
+      if (type !== "email" && type !== "sms") {
+        summary.skipped += 1;
+        continue;
+      }
 
       try {
+        let recipient = "";
+        let body = "";
         if (type === "email") {
           if (lead.do_not_email) { summary.skipped += 1; continue; }
           const to = String(lead.email || "").trim();
           if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { summary.skipped += 1; continue; }
-          await sendEmail(to, firstName);
-        } else if (type === "sms") {
+          recipient = to;
+          body = customMessage || defaultEmailBody(firstName);
+          await sendEmail(to, body);
+        } else {
           const to = normalizePhone(String(lead.phone || ""));
           if (!to) { summary.skipped += 1; continue; }
-          await sendSms(to, firstName);
-        } else {
-          // Call / In Person — manual reminders, don't auto-send
-          summary.skipped += 1;
-          continue;
+          recipient = to;
+          body = customMessage || defaultSmsBody(firstName);
+          await sendSms(to, body);
         }
 
-        // Mark as sent (preserve everything else in client_profile)
+        const sentAt = new Date().toISOString();
+
+        // Mark as sent + Completed
         const updatedCp = {
           ...cp,
-          followup_sent_at: new Date().toISOString(),
+          followup_sent_at: sentAt,
           followup_status: "Completed",
         };
         const { error: upErr } = await sb
@@ -124,11 +145,29 @@ Deno.serve(async (req) => {
           .update({ client_profile: updatedCp })
           .eq("id", lead.id);
         if (upErr) throw upErr;
+
+        // Log to activity
+        await cloud.from("contact_activity").insert({
+          lead_id: lead.id,
+          type: "followup_auto_send",
+          channel: type,
+          recipient,
+          body,
+          status: "sent",
+        });
+
         summary.sent += 1;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("followup send failed", lead.id, msg);
         summary.errors.push(`${lead.id}: ${msg}`);
+        await cloud.from("contact_activity").insert({
+          lead_id: lead.id,
+          type: "followup_auto_send",
+          channel: type,
+          status: "error",
+          error: msg,
+        });
       }
     }
 

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      contact_activity: {
+        Row: {
+          body: string | null
+          channel: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          lead_id: string
+          recipient: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          lead_id: string
+          recipient?: string | null
+          status?: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          lead_id?: string
+          recipient?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: []
+      }
       lead_documents: {
         Row: {
           file_name: string

@@ -42,6 +42,7 @@ export default function ContactDetail() {
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [docs, setDocs] = useState<LeadDocument[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -71,6 +72,7 @@ export default function ContactDetail() {
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
   const [fuType, setFuType] = useState<string>("");
   const [fuNotes, setFuNotes] = useState<string>("");
+  const [fuMessage, setFuMessage] = useState<string>("");
   const [fuStatus, setFuStatus] = useState<string>("Pending");
   const [fuAutoSend, setFuAutoSend] = useState<boolean>(false);
   const [fuSentAt, setFuSentAt] = useState<string | null>(null);
@@ -87,6 +89,17 @@ export default function ContactDetail() {
       .order("uploaded_at", { ascending: false });
     if (error) toast.error(error.message);
     else setDocs((data ?? []) as unknown as LeadDocument[]);
+  };
+
+  const loadActivity = async () => {
+    if (!id) return;
+    const { data, error } = await cloudSupabase
+      .from("contact_activity" as any)
+      .select("*")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!error) setActivity((data ?? []) as any[]);
   };
 
   useEffect(() => {
@@ -124,11 +137,12 @@ export default function ContactDetail() {
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
+        setFuMessage(cp.followup_message ?? "");
         setFuStatus(cp.followup_status ?? "Pending");
         setFuAutoSend(!!cp.followup_auto_send);
         setFuSentAt(cp.followup_sent_at ?? null);
       }
-      await loadDocs();
+      await Promise.all([loadDocs(), loadActivity()]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,6 +181,7 @@ export default function ContactDetail() {
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
+        followup_message: fuMessage || null,
         followup_status: fuStatus || null,
         followup_auto_send: fuAutoSend,
         followup_sent_at: fuSentAt,
@@ -187,6 +202,22 @@ export default function ContactDetail() {
     toast.success("Contact saved");
   };
 
+  const logActivity = async (entry: { channel: string; recipient: string; body: string; status: string; error?: string }) => {
+    if (!id) return;
+    const { data: { user } } = await cloudSupabase.auth.getUser();
+    await cloudSupabase.from("contact_activity" as any).insert({
+      lead_id: id,
+      type: "manual_send",
+      channel: entry.channel,
+      recipient: entry.recipient,
+      body: entry.body,
+      status: entry.status,
+      error: entry.error ?? null,
+      created_by: user?.id ?? null,
+    });
+    await loadActivity();
+  };
+
   const onSendEmail = async () => {
     if (!email.trim()) {
       toast.error("This contact has no email address");
@@ -200,8 +231,10 @@ export default function ContactDetail() {
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
       toast.success("Follow-up email sent");
+      await logActivity({ channel: "email", recipient: email.trim(), body: "(default follow-up email)", status: "sent" });
     } catch (e: any) {
       toast.error(e?.message || "Failed to send email");
+      await logActivity({ channel: "email", recipient: email.trim(), body: "", status: "error", error: e?.message });
     } finally {
       setSendingEmail(false);
     }
@@ -220,8 +253,10 @@ export default function ContactDetail() {
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
       toast.success("Follow-up SMS sent");
+      await logActivity({ channel: "sms", recipient: phone.trim(), body: "(default follow-up SMS)", status: "sent" });
     } catch (e: any) {
       toast.error(e?.message || "Failed to send SMS");
+      await logActivity({ channel: "sms", recipient: phone.trim(), body: "", status: "error", error: e?.message });
     } finally {
       setSendingSms(false);
     }
@@ -442,15 +477,37 @@ export default function ContactDetail() {
               </Select>
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="fu_notes">Follow-up notes</Label>
+              <Label htmlFor="fu_notes">Follow-up notes (internal only)</Label>
               <Textarea
                 id="fu_notes"
                 rows={4}
                 value={fuNotes}
                 onChange={(e) => setFuNotes(e.target.value)}
-                placeholder="What's the plan for this follow-up?"
+                placeholder="Internal memo — not sent to the client."
               />
+              <p className="text-xs text-muted-foreground">Visible only to admins. Never sent to the contact.</p>
             </div>
+            {(fuType === "SMS" || fuType === "Email") && (
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="fu_message">
+                  {fuType === "SMS" ? "SMS Message" : "Email Message"} (sent to client)
+                </Label>
+                <Textarea
+                  id="fu_message"
+                  rows={4}
+                  value={fuMessage}
+                  onChange={(e) => setFuMessage(e.target.value)}
+                  placeholder={
+                    fuType === "SMS"
+                      ? "The exact SMS body that will be sent to the contact when auto-send fires."
+                      : "The exact email body that will be sent to the contact when auto-send fires."
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is the message the contact receives via {fuType === "SMS" ? "Twilio SMS" : "email"}.
+                </p>
+              </div>
+            )}
             <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
               <div className="space-y-0.5">
                 <Label htmlFor="fu_auto">Auto-send when due</Label>
@@ -603,6 +660,46 @@ export default function ContactDetail() {
                     <Button size="sm" variant="ghost" onClick={() => onDownload(d)}>
                       <Download className="h-4 w-4" />
                     </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Activity history</CardTitle></CardHeader>
+          <CardContent>
+            {activity.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>
+            ) : (
+              <ul className="divide-y">
+                {activity.map((a) => (
+                  <li key={a.id} className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-sm font-medium">
+                        {a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel}
+                        {" · "}
+                        <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
+                          {a.status}
+                        </span>
+                        {a.type === "followup_auto_send" && (
+                          <span className="ml-2 text-xs text-muted-foreground">(auto-send)</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(a.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {a.recipient && (
+                      <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
+                    )}
+                    {a.body && (
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{a.body}</p>
+                    )}
+                    {a.error && (
+                      <p className="text-xs text-destructive mt-1">{a.error}</p>
+                    )}
                   </li>
                 ))}
               </ul>
