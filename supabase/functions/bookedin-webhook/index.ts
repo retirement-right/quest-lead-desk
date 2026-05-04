@@ -37,16 +37,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Shared-secret auth (Zapier sends as header or ?secret= query param)
-  if (SHARED_SECRET) {
-    const url = new URL(req.url);
-    const provided = req.headers.get("x-webhook-secret") || url.searchParams.get("secret") || "";
-    if (provided !== SHARED_SECRET) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  }
+  // Public endpoint — no auth checks (Zapier posts directly)
 
   let payload: Record<string, any>;
   try {
