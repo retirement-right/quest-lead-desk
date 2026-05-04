@@ -97,7 +97,9 @@ Deno.serve(async (req) => {
   const apptDateIso = parseFlexibleDate(apptDateRaw);
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
-  const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
+  const sb = createClient(LEADJIG_URL, LEADJIG_SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   // 1) Log raw appointment
   const { data: logRow, error: logErr } = await cloud
