@@ -29,6 +29,26 @@ function splitName(full?: string | null): { first: string; last: string } {
   return { first: parts[0], last: parts.slice(1).join(" ") };
 }
 
+// Parse dates that may arrive as ISO or as human-readable strings like
+// "Tuesday, Apr 21, 2026 at 10:00 AM". Returns ISO string or null.
+function parseFlexibleDate(raw: string): string | null {
+  if (!raw) return null;
+  const tryDate = (s: string) => {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  let iso = tryDate(raw);
+  if (iso) return iso;
+  // Strip leading weekday "Tuesday, " and replace " at " with " "
+  let cleaned = raw.replace(/^[A-Za-z]+,\s*/, "").replace(/\s+at\s+/i, " ");
+  iso = tryDate(cleaned);
+  if (iso) return iso;
+  // Try removing ordinal suffixes (1st, 2nd, 3rd, 4th)
+  cleaned = cleaned.replace(/(\d+)(st|nd|rd|th)/gi, "$1");
+  iso = tryDate(cleaned);
+  return iso;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -74,7 +94,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apptDateIso = apptDateRaw ? new Date(apptDateRaw).toISOString() : null;
+  const apptDateIso = parseFlexibleDate(apptDateRaw);
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
   const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
