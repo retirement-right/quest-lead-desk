@@ -1,12 +1,13 @@
-// Scheduler: runs every minute (via pg_cron). Finds leads with an auto-send
-// follow-up that's due and not yet sent, then dispatches Email/SMS using the
-// admin-authored SMS/Email Message body, marks sent, and logs to contact_activity.
+// Scheduler: runs every minute (via pg_cron). Calls the Retirement-Right
+// proxy edge function to fetch due auto-send follow-ups (which has service-role
+// access bypassing RLS), then dispatches Email/SMS using the admin-authored
+// message body, and asks the proxy to mark them sent + update status.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
-// External Supabase (where leadjig_leads lives) — anon key, RLS-friendly
-const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
-const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
+const PROXY_URL =
+  "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-followups-proxy";
+const SHARED_SECRET = Deno.env.get("LEADJIG_SHARED_SECRET")!;
 
 // Lovable Cloud project (for activity log)
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
@@ -73,6 +74,32 @@ async function sendSms(to: string, body: string) {
   if (!res.ok) throw new Error(`Twilio ${res.status}: ${JSON.stringify(data)}`);
 }
 
+async function proxy(action: string, payload: Record<string, unknown> = {}) {
+  const res = await fetch(PROXY_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-shared-secret": SHARED_SECRET,
+    },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const text = await res.text();
+  let body: any = text;
+  try { body = JSON.parse(text); } catch {}
+  if (!res.ok) throw new Error(`proxy ${action} ${res.status}: ${text}`);
+  return body;
+}
+
+interface DueLead {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  do_not_email: boolean | null;
+  raw_payload: Record<string, any> | null;
+  client_profile: Record<string, any> | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -81,26 +108,15 @@ Deno.serve(async (req) => {
   const summary = { scanned: 0, sent: 0, skipped: 0, errors: [] as string[] };
 
   try {
-    const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
     const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
-    const nowIso = new Date().toISOString();
 
-    const { data, error } = await sb
-      .from("leadjig_leads")
-      .select("id, name, email, phone, raw_payload, client_profile, do_not_email")
-      .limit(1000);
+    const listResp = await proxy("list_due");
+    const leads: DueLead[] = listResp.leads ?? [];
+    console.log(`process-followups: proxy returned ${leads.length} due lead(s)`);
 
-    if (error) throw new Error(`query leads: ${error.message}`);
-
-    for (const lead of data ?? []) {
-      const cp = (lead.client_profile ?? {}) as Record<string, any>;
-      if (!cp.followup_auto_send) continue;
-      if (!cp.followup_date) continue;
-      if (cp.followup_sent_at) continue;
-      if ((cp.followup_status ?? "Pending") !== "Pending") continue;
-      if (new Date(cp.followup_date).toISOString() > nowIso) continue;
-
+    for (const lead of leads) {
       summary.scanned += 1;
+      const cp = (lead.client_profile ?? {}) as Record<string, any>;
       const type = String(cp.followup_type || "").toLowerCase();
       const rp = (lead.raw_payload ?? {}) as Record<string, any>;
       const firstName = String(
@@ -108,7 +124,6 @@ Deno.serve(async (req) => {
       ).trim();
       const customMessage = String(cp.followup_message || "").trim();
 
-      // Call / In-Person never auto-send
       if (type !== "email" && type !== "sms") {
         summary.skipped += 1;
         continue;
@@ -134,19 +149,8 @@ Deno.serve(async (req) => {
 
         const sentAt = new Date().toISOString();
 
-        // Mark as sent + Completed
-        const updatedCp = {
-          ...cp,
-          followup_sent_at: sentAt,
-          followup_status: "Completed",
-        };
-        const { error: upErr } = await sb
-          .from("leadjig_leads")
-          .update({ client_profile: updatedCp })
-          .eq("id", lead.id);
-        if (upErr) throw upErr;
+        await proxy("mark_sent", { lead_id: lead.id, sent_at: sentAt });
 
-        // Log to activity
         await cloud.from("contact_activity").insert({
           lead_id: lead.id,
           type: "followup_auto_send",
