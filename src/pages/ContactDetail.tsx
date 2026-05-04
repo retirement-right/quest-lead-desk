@@ -142,7 +142,7 @@ export default function ContactDetail() {
         setFuAutoSend(!!cp.followup_auto_send);
         setFuSentAt(cp.followup_sent_at ?? null);
       }
-      await loadDocs();
+      await Promise.all([loadDocs(), loadActivity()]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
