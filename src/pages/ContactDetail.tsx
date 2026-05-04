@@ -202,6 +202,22 @@ export default function ContactDetail() {
     toast.success("Contact saved");
   };
 
+  const logActivity = async (entry: { channel: string; recipient: string; body: string; status: string; error?: string }) => {
+    if (!id) return;
+    const { data: { user } } = await cloudSupabase.auth.getUser();
+    await cloudSupabase.from("contact_activity" as any).insert({
+      lead_id: id,
+      type: "manual_send",
+      channel: entry.channel,
+      recipient: entry.recipient,
+      body: entry.body,
+      status: entry.status,
+      error: entry.error ?? null,
+      created_by: user?.id ?? null,
+    });
+    await loadActivity();
+  };
+
   const onSendEmail = async () => {
     if (!email.trim()) {
       toast.error("This contact has no email address");
@@ -215,8 +231,10 @@ export default function ContactDetail() {
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
       toast.success("Follow-up email sent");
+      await logActivity({ channel: "email", recipient: email.trim(), body: "(default follow-up email)", status: "sent" });
     } catch (e: any) {
       toast.error(e?.message || "Failed to send email");
+      await logActivity({ channel: "email", recipient: email.trim(), body: "", status: "error", error: e?.message });
     } finally {
       setSendingEmail(false);
     }
@@ -235,8 +253,10 @@ export default function ContactDetail() {
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
       toast.success("Follow-up SMS sent");
+      await logActivity({ channel: "sms", recipient: phone.trim(), body: "(default follow-up SMS)", status: "sent" });
     } catch (e: any) {
       toast.error(e?.message || "Failed to send SMS");
+      await logActivity({ channel: "sms", recipient: phone.trim(), body: "", status: "error", error: e?.message });
     } finally {
       setSendingSms(false);
     }
