@@ -323,6 +323,16 @@ export default function Contacts() {
                         />
                       )}
                       <Link to={`/contacts/${l.id}`} className="hover:underline">{fullName(l)}</Link>
+                      {l.notes && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs whitespace-pre-wrap">{l.notes}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
