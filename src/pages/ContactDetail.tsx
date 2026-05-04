@@ -42,6 +42,7 @@ export default function ContactDetail() {
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [docs, setDocs] = useState<LeadDocument[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
