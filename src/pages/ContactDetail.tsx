@@ -169,6 +169,7 @@ export default function ContactDetail() {
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
+        followup_message: fuMessage || null,
         followup_status: fuStatus || null,
         followup_auto_send: fuAutoSend,
         followup_sent_at: fuSentAt,
