@@ -5,6 +5,7 @@ const styles: Record<string, string> = {
   Client: "bg-status-client text-status-client-foreground",
   "Not Interested": "bg-status-not-interested text-status-not-interested-foreground",
   "Appointment Set": "bg-status-appointment text-status-appointment-foreground",
+  Cancelled: "bg-status-cancelled text-status-cancelled-foreground",
 };
 
 export function StatusBadge({ status, className }: { status?: string | null; className?: string }) {

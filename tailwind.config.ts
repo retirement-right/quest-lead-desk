@@ -56,6 +56,8 @@ export default {
           "not-interested-foreground": "hsl(var(--status-not-interested-foreground))",
           appointment: "hsl(var(--status-appointment))",
           "appointment-foreground": "hsl(var(--status-appointment-foreground))",
+          cancelled: "hsl(var(--status-cancelled))",
+          "cancelled-foreground": "hsl(var(--status-cancelled-foreground))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
