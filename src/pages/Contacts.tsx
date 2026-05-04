@@ -327,6 +327,7 @@ export default function Contacts() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground max-w-[260px] truncate" title={l.address || ""}>{l.address || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
