@@ -115,6 +115,8 @@ Deno.serve(async (req) => {
   try {
     const body = {
       email,
+      contact_name: name || null,
+      contact_phone: phone || null,
       lifecycle_stage: "consultation_booked",
       appointment_at: apptDateIso,
       booked_at: new Date().toISOString(),
