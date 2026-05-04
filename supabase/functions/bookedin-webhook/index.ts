@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const apptDateIso = apptDateRaw ? new Date(apptDateRaw).toISOString() : null;
+  const apptDateIso = parseFlexibleDate(apptDateRaw);
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
   const sb = createClient(LEADJIG_URL, LEADJIG_ANON);
