@@ -666,6 +666,46 @@ export default function ContactDetail() {
             )}
           </CardContent>
         </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Activity history</CardTitle></CardHeader>
+          <CardContent>
+            {activity.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>
+            ) : (
+              <ul className="divide-y">
+                {activity.map((a) => (
+                  <li key={a.id} className="py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-sm font-medium">
+                        {a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel}
+                        {" · "}
+                        <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
+                          {a.status}
+                        </span>
+                        {a.type === "followup_auto_send" && (
+                          <span className="ml-2 text-xs text-muted-foreground">(auto-send)</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(a.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {a.recipient && (
+                      <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
+                    )}
+                    {a.body && (
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{a.body}</p>
+                    )}
+                    {a.error && (
+                      <p className="text-xs text-destructive mt-1">{a.error}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
