@@ -1,16 +1,15 @@
 // Receives BookedIN appointment events from Zapier, logs them to
-// bookedin_appointments, and syncs the matching contact in the external
-// leadjig_leads database (creating it if no email match), then writes a
-// contact_activity entry.
+// bookedin_appointments, and forwards the update to the Retirement-Right
+// proxy edge function (which owns writes to leadjig_leads).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
-const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
-const LEADJIG_SERVICE_ROLE = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
+const LEADJIG_PROXY_URL =
+  "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-update-from-bookedin";
+const LEADJIG_SHARED_SECRET = Deno.env.get("LEADJIG_SHARED_SECRET")!;
 
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
 const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
 
 type AppointmentStatus = "booked" | "rescheduled" | "cancelled";
 
@@ -20,13 +19,6 @@ function normalizeStatus(s: string): AppointmentStatus | null {
   if (["rescheduled", "reschedule", "updated"].includes(v)) return "rescheduled";
   if (["cancelled", "canceled", "cancel"].includes(v)) return "cancelled";
   return null;
-}
-
-function splitName(full?: string | null): { first: string; last: string } {
-  const t = (full || "").trim();
-  if (!t) return { first: "", last: "" };
-  const parts = t.split(/\s+/);
-  return { first: parts[0], last: parts.slice(1).join(" ") };
 }
 
 // Parse dates that may arrive as ISO or as human-readable strings like
@@ -39,11 +31,9 @@ function parseFlexibleDate(raw: string): string | null {
   };
   let iso = tryDate(raw);
   if (iso) return iso;
-  // Strip leading weekday "Tuesday, " and replace " at " with " "
   let cleaned = raw.replace(/^[A-Za-z]+,\s*/, "").replace(/\s+at\s+/i, " ");
   iso = tryDate(cleaned);
   if (iso) return iso;
-  // Try removing ordinal suffixes (1st, 2nd, 3rd, 4th)
   cleaned = cleaned.replace(/(\d+)(st|nd|rd|th)/gi, "$1");
   iso = tryDate(cleaned);
   return iso;
@@ -68,7 +58,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Accept flexible field names from Zapier mapping
   const email = String(
     payload.contact_email || payload.email || payload.client_email || ""
   ).trim().toLowerCase();
@@ -97,9 +86,6 @@ Deno.serve(async (req) => {
   const apptDateIso = parseFlexibleDate(apptDateRaw);
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
-  const sb = createClient(LEADJIG_URL, LEADJIG_SERVICE_ROLE, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   // 1) Log raw appointment
   const { data: logRow, error: logErr } = await cloud
@@ -122,96 +108,38 @@ Deno.serve(async (req) => {
     });
   }
 
-  let leadId: string | null = null;
-  let created = false;
   let processError: string | null = null;
+  let proxyStatus: number | null = null;
+  let proxyBody: unknown = null;
 
   try {
-    // 2) Find existing contact by email (case-insensitive)
-    const { data: matches, error: findErr } = await sb
-      .from("leadjig_leads")
-      .select("id, name, email, phone, raw_payload, client_profile")
-      .ilike("email", email)
-      .limit(1);
-    if (findErr) throw new Error(`find lead: ${findErr.message}`);
+    const body = {
+      email,
+      lifecycle_stage: "consultation_booked",
+      appointment_at: apptDateIso,
+      booked_at: new Date().toISOString(),
+      notes: "Booked via BookedIN",
+    };
 
-    const existing = matches?.[0];
-
-    // Map appointment status -> followup status & contact status
-    const followupStatus = status === "cancelled" ? "Cancelled" : "Pending";
-    const contactStatus = status === "cancelled" ? "Prospect" : "Appointment Set";
-
-    if (existing) {
-      leadId = existing.id;
-      const cp = (existing.client_profile ?? {}) as Record<string, any>;
-      const newCp = {
-        ...cp,
-        followup_date: apptDateIso ?? cp.followup_date ?? null,
-        followup_type: "In Person",
-        followup_status: followupStatus,
-        followup_auto_send: false,
-        followup_sent_at: null,
-        appointment_status: status,
-        last_bookedin_sync: new Date().toISOString(),
-      };
-      const updates: Record<string, any> = { client_profile: newCp };
-      // Only bump status if not cancelled-revert
-      if (status !== "cancelled" || (cp.stage_label ?? cp.status) !== "Client") {
-        updates.client_profile = { ...newCp, status: contactStatus };
-      }
-      const { error: upErr } = await sb
-        .from("leadjig_leads")
-        .update(updates)
-        .eq("id", existing.id);
-      if (upErr) throw new Error(`update lead: ${upErr.message}`);
-    } else {
-      // 3) Create new contact (full: email, name, phone)
-      const { first, last } = splitName(name);
-      const newRaw: Record<string, any> = {
-        first_name: first || null,
-        last_name: last || null,
-        source: "BookedIN",
-      };
-      const newCp: Record<string, any> = {
-        status: contactStatus,
-        followup_date: apptDateIso,
-        followup_type: "In Person",
-        followup_status: followupStatus,
-        followup_auto_send: false,
-        appointment_status: status,
-        last_bookedin_sync: new Date().toISOString(),
-      };
-      const { data: ins, error: insErr } = await sb
-        .from("leadjig_leads")
-        .insert({
-          name: name || email,
-          email,
-          phone: phone || null,
-          raw_payload: newRaw,
-          client_profile: newCp,
-        })
-        .select("id").single();
-      if (insErr) throw new Error(`create lead: ${insErr.message}`);
-      leadId = ins.id;
-      created = true;
-    }
-
-    // 4) Activity log entry
-    if (leadId) {
-      await cloud.from("contact_activity").insert({
-        lead_id: leadId,
-        type: "bookedin_appointment",
-        channel: "bookedin",
-        status: status,
-        body: `Appointment ${status}${apptDateIso ? ` for ${apptDateIso}` : ""}${created ? " (contact auto-created)" : ""}${notes ? ` — ${notes}` : ""}`,
-      });
+    const resp = await fetch(LEADJIG_PROXY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-shared-secret": LEADJIG_SHARED_SECRET,
+      },
+      body: JSON.stringify(body),
+    });
+    proxyStatus = resp.status;
+    const text = await resp.text();
+    try { proxyBody = JSON.parse(text); } catch { proxyBody = text; }
+    if (!resp.ok) {
+      throw new Error(`proxy ${resp.status}: ${text}`);
     }
   } catch (e) {
     processError = e instanceof Error ? e.message : String(e);
-    console.error("sync failed", processError);
+    console.error("proxy call failed", processError);
   }
 
-  // Mark log row processed
   await cloud
     .from("bookedin_appointments")
     .update({
@@ -224,10 +152,10 @@ Deno.serve(async (req) => {
     JSON.stringify({
       success: !processError,
       log_id: logRow.id,
-      lead_id: leadId,
-      created,
+      proxy_status: proxyStatus,
+      proxy_response: proxyBody,
       error: processError,
     }),
-    { status: processError ? 500 : 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    { status: processError ? 502 : 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
