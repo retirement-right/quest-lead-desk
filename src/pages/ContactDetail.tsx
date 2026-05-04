@@ -71,6 +71,7 @@ export default function ContactDetail() {
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
   const [fuType, setFuType] = useState<string>("");
   const [fuNotes, setFuNotes] = useState<string>("");
+  const [fuMessage, setFuMessage] = useState<string>("");
   const [fuStatus, setFuStatus] = useState<string>("Pending");
   const [fuAutoSend, setFuAutoSend] = useState<boolean>(false);
   const [fuSentAt, setFuSentAt] = useState<string | null>(null);
