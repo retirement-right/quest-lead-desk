@@ -10,7 +10,7 @@ const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
 
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
 const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SHARED_SECRET = Deno.env.get("BOOKEDIN_WEBHOOK_SECRET") || "";
+
 
 type AppointmentStatus = "booked" | "rescheduled" | "cancelled";
 
