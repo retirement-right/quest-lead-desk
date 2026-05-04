@@ -125,6 +125,7 @@ export default function ContactDetail() {
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
+        setFuMessage(cp.followup_message ?? "");
         setFuStatus(cp.followup_status ?? "Pending");
         setFuAutoSend(!!cp.followup_auto_send);
         setFuSentAt(cp.followup_sent_at ?? null);
