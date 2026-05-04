@@ -445,15 +445,37 @@ export default function ContactDetail() {
               </Select>
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="fu_notes">Follow-up notes</Label>
+              <Label htmlFor="fu_notes">Follow-up notes (internal only)</Label>
               <Textarea
                 id="fu_notes"
                 rows={4}
                 value={fuNotes}
                 onChange={(e) => setFuNotes(e.target.value)}
-                placeholder="What's the plan for this follow-up?"
+                placeholder="Internal memo — not sent to the client."
               />
+              <p className="text-xs text-muted-foreground">Visible only to admins. Never sent to the contact.</p>
             </div>
+            {(fuType === "SMS" || fuType === "Email") && (
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="fu_message">
+                  {fuType === "SMS" ? "SMS Message" : "Email Message"} (sent to client)
+                </Label>
+                <Textarea
+                  id="fu_message"
+                  rows={4}
+                  value={fuMessage}
+                  onChange={(e) => setFuMessage(e.target.value)}
+                  placeholder={
+                    fuType === "SMS"
+                      ? "The exact SMS body that will be sent to the contact when auto-send fires."
+                      : "The exact email body that will be sent to the contact when auto-send fires."
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  This is the message the contact receives via {fuType === "SMS" ? "Twilio SMS" : "email"}.
+                </p>
+              </div>
+            )}
             <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
               <div className="space-y-0.5">
                 <Label htmlFor="fu_auto">Auto-send when due</Label>
