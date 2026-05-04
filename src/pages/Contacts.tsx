@@ -332,7 +332,7 @@ export default function Contacts() {
                         <PopoverTrigger asChild>
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                            onClick={(e) => e.stopPropagation()}
                             className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring"
                             aria-label="Change status"
                           >
