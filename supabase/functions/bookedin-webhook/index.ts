@@ -10,7 +10,7 @@ const LEADJIG_ANON = "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
 
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
 const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SHARED_SECRET = Deno.env.get("BOOKEDIN_WEBHOOK_SECRET") || "";
+
 
 type AppointmentStatus = "booked" | "rescheduled" | "cancelled";
 
@@ -37,16 +37,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Shared-secret auth (Zapier sends as header or ?secret= query param)
-  if (SHARED_SECRET) {
-    const url = new URL(req.url);
-    const provided = req.headers.get("x-webhook-secret") || url.searchParams.get("secret") || "";
-    if (provided !== SHARED_SECRET) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  }
+  // Public endpoint — no auth checks (Zapier posts directly)
 
   let payload: Record<string, any>;
   try {
