@@ -15,7 +15,8 @@ export type LeadStatus =
   | "Prospect"
   | "Client"
   | "Not Interested"
-  | "Appointment Set";
+  | "Appointment Set"
+  | "Cancelled";
 
 export interface Lead {
   id: string;
