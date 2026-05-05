@@ -149,11 +149,25 @@ export default function Contacts() {
     });
   }, [leads, q, status, optOutOnly]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const regTime = (l: Lead): number => {
+    const raw = (l.raw_payload as any)?.registration_date || l.created_at;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+
+  const sorted = useMemo(() => {
+    if (sortRegistered === "none") return filtered;
+    const arr = [...filtered];
+    arr.sort((a, b) => sortRegistered === "asc" ? regTime(a) - regTime(b) : regTime(b) - regTime(a));
+    return arr;
+  }, [filtered, sortRegistered]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
-  const pageLeads = filtered.slice(startIdx, endIdx);
+  const endIdx = Math.min(startIdx + PAGE_SIZE, sorted.length);
+  const pageLeads = sorted.slice(startIdx, endIdx);
 
   const handleSave = async () => {
     const first = form.first_name.trim();
