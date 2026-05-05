@@ -756,8 +756,6 @@ export default function ContactDetail() {
             })()}
           </CardContent>
         </Card>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
