@@ -159,8 +159,11 @@ export default function ContactDetail() {
       first_name: fn || null,
       last_name: ln || null,
     };
+    const newStage = status ? labelToStage(status) : null;
+    const prevStage = lead?.lifecycle_stage ?? null;
+    const stageChanged = newStage !== prevStage;
     const payload = {
-      lifecycle_stage: status ? labelToStage(status) : null,
+      lifecycle_stage: newStage,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
@@ -199,6 +202,18 @@ export default function ContactDetail() {
       return;
     }
     if (data) setLead(data as Lead);
+    if (stageChanged) {
+      const { data: { user } } = await cloudSupabase.auth.getUser();
+      await cloudSupabase.from("contact_activity" as any).insert({
+        lead_id: id,
+        type: "status_change",
+        channel: "status",
+        body: `${stageToLabel(prevStage)} → ${stageToLabel(newStage)}`,
+        status: "ok",
+        created_by: user?.id ?? null,
+      });
+      await loadActivity();
+    }
     toast.success("Contact saved");
   };
 
@@ -679,40 +694,66 @@ export default function ContactDetail() {
         <Card className="lg:col-span-3">
           <CardHeader><CardTitle className="text-base">Activity history</CardTitle></CardHeader>
           <CardContent>
-            {activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>
-            ) : (
-              <ul className="divide-y">
-                {activity.map((a) => (
-                  <li key={a.id} className="py-3">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="text-sm font-medium">
-                        {a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel}
-                        {" · "}
-                        <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
-                          {a.status}
-                        </span>
-                        {a.type === "followup_auto_send" && (
-                          <span className="ml-2 text-xs text-muted-foreground">(auto-send)</span>
+            {(() => {
+              const regRaw = (lead.raw_payload as any)?.registration_date || lead.created_at;
+              const regDate = regRaw ? new Date(regRaw) : null;
+              const items: any[] = [...activity];
+              if (regDate && !isNaN(regDate.getTime())) {
+                items.push({
+                  id: "__registered__",
+                  type: "registered",
+                  channel: "status",
+                  status: "ok",
+                  body: "Registered",
+                  created_at: regDate.toISOString(),
+                });
+              }
+              items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              if (items.length === 0) {
+                return <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>;
+              }
+              return (
+                <ul className="divide-y">
+                  {items.map((a) => {
+                    const isStatus = a.type === "status_change" || a.type === "registered";
+                    return (
+                      <li key={a.id} className="py-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-sm font-medium">
+                            {isStatus
+                              ? (a.type === "registered" ? "Registered" : "Status changed")
+                              : (a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel)}
+                            {!isStatus && (
+                              <>
+                                {" · "}
+                                <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
+                                  {a.status}
+                                </span>
+                              </>
+                            )}
+                            {a.type === "followup_auto_send" && (
+                              <span className="ml-2 text-xs text-muted-foreground">(auto-send)</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(a.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        {a.recipient && (
+                          <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
                         )}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(a.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    {a.recipient && (
-                      <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
-                    )}
-                    {a.body && (
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{a.body}</p>
-                    )}
-                    {a.error && (
-                      <p className="text-xs text-destructive mt-1">{a.error}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+                        {a.body && (
+                          <p className="text-sm mt-1 whitespace-pre-wrap">{a.body}</p>
+                        )}
+                        {a.error && (
+                          <p className="text-xs text-destructive mt-1">{a.error}</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
