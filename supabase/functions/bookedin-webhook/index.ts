@@ -142,6 +142,8 @@ Deno.serve(async (req) => {
     const body = {
       email,
       contact_name: name || null,
+      first_name: firstName || null,
+      last_name: lastName || null,
       contact_phone: phone || null,
       lifecycle_stage: lifecycleStage,
       appointment_at: apptDateIso,
