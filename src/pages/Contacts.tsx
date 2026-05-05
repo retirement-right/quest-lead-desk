@@ -238,6 +238,7 @@ export default function Contacts() {
     const prevStage = lead.lifecycle_stage;
     const newStage = labelToStage(newStatus);
     if (prevStage === newStage) return;
+    const prevLabel = stageToLabel(prevStage);
     setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: newStage } : x)));
     const { error } = await supabase
       .from("leadjig_leads")
@@ -248,6 +249,16 @@ export default function Contacts() {
       toast.error(error.message);
     } else {
       toast.success("Status updated");
+      const { supabase: cloud } = await import("@/integrations/supabase/client");
+      const { data: { user } } = await cloud.auth.getUser();
+      await cloud.from("contact_activity" as any).insert({
+        lead_id: lead.id,
+        type: "status_change",
+        channel: "status",
+        body: `${prevLabel} → ${newStatus}`,
+        status: "ok",
+        created_by: user?.id ?? null,
+      });
     }
   };
 
