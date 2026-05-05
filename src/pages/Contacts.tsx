@@ -369,6 +369,14 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground max-w-[260px] truncate" title={l.address || ""}>{l.address || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                    {(() => {
+                      const raw = (l.raw_payload as any)?.registration_date || l.created_at;
+                      if (!raw) return "—";
+                      const d = new Date(raw);
+                      return isNaN(d.getTime()) ? "—" : format(d, "MMM d, yyyy h:mm a");
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Popover>
