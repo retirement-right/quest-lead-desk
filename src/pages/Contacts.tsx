@@ -17,7 +17,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Search, StickyNote, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search, StickyNote, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -81,6 +82,7 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sortRegistered, setSortRegistered] = useState<"none" | "asc" | "desc">("none");
   const PAGE_SIZE = 50;
 
   const loadLeads = async () => {
@@ -147,11 +149,25 @@ export default function Contacts() {
     });
   }, [leads, q, status, optOutOnly]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const regTime = (l: Lead): number => {
+    const raw = (l.raw_payload as any)?.registration_date || l.created_at;
+    if (!raw) return 0;
+    const t = new Date(raw).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+
+  const sorted = useMemo(() => {
+    if (sortRegistered === "none") return filtered;
+    const arr = [...filtered];
+    arr.sort((a, b) => sortRegistered === "asc" ? regTime(a) - regTime(b) : regTime(b) - regTime(a));
+    return arr;
+  }, [filtered, sortRegistered]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
-  const pageLeads = filtered.slice(startIdx, endIdx);
+  const endIdx = Math.min(startIdx + PAGE_SIZE, sorted.length);
+  const pageLeads = sorted.slice(startIdx, endIdx);
 
   const handleSave = async () => {
     const first = form.first_name.trim();
@@ -288,19 +304,33 @@ export default function Contacts() {
               <TableHead>Phone</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Event</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSortRegistered((s) => (s === "none" ? "desc" : s === "desc" ? "asc" : "none"))
+                  }
+                  className="inline-flex items-center gap-1 hover:text-foreground"
+                >
+                  Registered
+                  {sortRegistered === "none" && <ArrowUpDown className="h-3.5 w-3.5" />}
+                  {sortRegistered === "desc" && <ArrowDown className="h-3.5 w-3.5" />}
+                  {sortRegistered === "asc" && <ArrowUp className="h-3.5 w-3.5" />}
+                </button>
+              </TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center">
+                <TableCell colSpan={7} className="h-32 text-center">
                   <Loader2 className="h-5 w-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -339,6 +369,14 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
                   <TableCell className="text-muted-foreground max-w-[260px] truncate" title={l.address || ""}>{l.address || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                    {(() => {
+                      const raw = (l.raw_payload as any)?.registration_date || l.created_at;
+                      if (!raw) return "—";
+                      const d = new Date(raw);
+                      return isNaN(d.getTime()) ? "—" : format(d, "MMM d, yyyy h:mm a");
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Popover>

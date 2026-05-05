@@ -393,6 +393,15 @@ export default function ContactDetail() {
             </div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <ReadOnly label="Event date" value={lead.event_date} />
+            <ReadOnly
+              label="Registration date"
+              value={(() => {
+                const raw = (lead.raw_payload as any)?.registration_date || lead.created_at;
+                if (!raw) return null;
+                const d = new Date(raw);
+                return isNaN(d.getTime()) ? null : format(d, "MMMM d, yyyy 'at' h:mm a");
+              })()}
+            />
             <ReadOnly label="Registration group ID" value={lead.registration_group_id ?? null} />
             <ReadOnly label="Role" value={roleValue} />
             <ReadOnly label="Is guest" value={lead.is_guest == null ? null : lead.is_guest ? "Yes" : "No"} />
