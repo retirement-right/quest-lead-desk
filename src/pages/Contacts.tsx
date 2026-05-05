@@ -17,7 +17,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Search, StickyNote, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search, StickyNote, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
