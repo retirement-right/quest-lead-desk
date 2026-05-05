@@ -304,6 +304,20 @@ export default function Contacts() {
               <TableHead>Phone</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Event</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSortRegistered((s) => (s === "none" ? "desc" : s === "desc" ? "asc" : "none"))
+                  }
+                  className="inline-flex items-center gap-1 hover:text-foreground"
+                >
+                  Registered
+                  {sortRegistered === "none" && <ArrowUpDown className="h-3.5 w-3.5" />}
+                  {sortRegistered === "desc" && <ArrowDown className="h-3.5 w-3.5" />}
+                  {sortRegistered === "asc" && <ArrowUp className="h-3.5 w-3.5" />}
+                </button>
+              </TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
