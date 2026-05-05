@@ -61,9 +61,16 @@ Deno.serve(async (req) => {
   const email = String(
     payload.contact_email || payload.email || payload.client_email || ""
   ).trim().toLowerCase();
-  const name = String(
+  const firstName = String(
+    payload.first_name || payload.contact_first_name || payload.client_first_name || ""
+  ).trim();
+  const lastName = String(
+    payload.last_name || payload.contact_last_name || payload.client_last_name || ""
+  ).trim();
+  const combinedName = String(
     payload.contact_name || payload.name || payload.client_name || ""
   ).trim();
+  const name = combinedName || [firstName, lastName].filter(Boolean).join(" ").trim();
   const phone = String(payload.contact_phone || payload.phone || "").trim();
   const apptDateRaw = String(
     payload.appointment_date || payload.date || payload.start_time || payload.scheduled_at || ""
@@ -135,6 +142,8 @@ Deno.serve(async (req) => {
     const body = {
       email,
       contact_name: name || null,
+      first_name: firstName || null,
+      last_name: lastName || null,
       contact_phone: phone || null,
       lifecycle_stage: lifecycleStage,
       appointment_at: apptDateIso,
