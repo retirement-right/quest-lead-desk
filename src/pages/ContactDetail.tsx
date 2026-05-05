@@ -159,8 +159,11 @@ export default function ContactDetail() {
       first_name: fn || null,
       last_name: ln || null,
     };
+    const newStage = status ? labelToStage(status) : null;
+    const prevStage = lead?.lifecycle_stage ?? null;
+    const stageChanged = newStage !== prevStage;
     const payload = {
-      lifecycle_stage: status ? labelToStage(status) : null,
+      lifecycle_stage: newStage,
       appointment_at: appointment ? new Date(appointment).toISOString() : null,
       notes: notes || null,
       date_of_birth: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
@@ -199,6 +202,18 @@ export default function ContactDetail() {
       return;
     }
     if (data) setLead(data as Lead);
+    if (stageChanged) {
+      const { data: { user } } = await cloudSupabase.auth.getUser();
+      await cloudSupabase.from("contact_activity" as any).insert({
+        lead_id: id,
+        type: "status_change",
+        channel: "status",
+        body: `${stageToLabel(prevStage)} → ${stageToLabel(newStage)}`,
+        status: "ok",
+        created_by: user?.id ?? null,
+      });
+      await loadActivity();
+    }
     toast.success("Contact saved");
   };
 
