@@ -299,6 +299,11 @@ export default function Contacts() {
           >
             Newsletter Opt-Out
           </Button>
+          <Link to="/appointments">
+            <Button className="bg-status-appointment text-status-appointment-foreground hover:bg-status-appointment/90">
+              📅 Appointments
+            </Button>
+          </Link>
           <Button onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Add Contact
