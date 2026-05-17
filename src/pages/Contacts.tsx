@@ -462,7 +462,7 @@ export default function Contacts() {
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
