@@ -512,6 +512,9 @@ export default function Contacts() {
                     })()}
                   </TableCell>
                   <TableCell>
+                    <StageBadge stage={stageKey(l)} />
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       <Popover>
                         <PopoverTrigger asChild>
