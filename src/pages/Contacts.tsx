@@ -45,24 +45,42 @@ const fullName = (l: Lead) => {
 
 const composedAddress = (l: Lead): string => {
   const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
+  const cp = ((l as any).client_profile ?? {}) as Record<string, any>;
+  const top = l as unknown as Record<string, any>;
+  // Search top-level columns first (e.g. street_address/city/state/zip_code),
+  // then raw_payload, then client_profile.
+  const sources = [top, rp, cp];
   const pick = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = rp[k];
-      if (v != null && String(v).trim() !== "") return String(v).trim();
+    for (const src of sources) {
+      for (const k of keys) {
+        const v = src?.[k];
+        if (v != null && String(v).trim() !== "") return String(v).trim();
+      }
     }
     return "";
   };
-  const street = pick("street_address", "address", "address1", "street");
-  const city = pick("city");
-  const state = pick("state", "region");
-  const zip = pick("zip_code", "zip", "postal_code", "postcode");
-  const cityStateZip = [city, [state, zip].filter(Boolean).join(" ")]
+  const street = pick(
+    "street_address",
+    "street",
+    "address1",
+    "address_line_1",
+    "address_line1",
+    "addressLine1",
+  );
+  const city = pick("city", "town");
+  const state = pick("state", "region", "province");
+  const zip = pick("zip_code", "zip", "postal_code", "postcode", "zipcode");
+  const cityStateZip = [city, [state, zip].filter(Boolean).join(" ").trim()]
     .filter(Boolean)
     .join(", ");
   const composed = [street, cityStateZip].filter(Boolean).join(", ");
   if (composed) return composed;
+  // Fallbacks: a single combined "address" string anywhere
+  const combined = pick("address", "full_address", "mailing_address");
+  if (combined) return combined;
   return (l.address ?? "").trim();
 };
+
 
 
 type FollowUpState = "overdue" | "today" | null;
