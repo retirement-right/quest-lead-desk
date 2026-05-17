@@ -176,6 +176,7 @@ export default function Contacts() {
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sortRegistered, setSortRegistered] = useState<"none" | "asc" | "desc">("none");
+  const [sortStage, setSortStage] = useState<"none" | "asc" | "desc">("none");
   const PAGE_SIZE = 50;
 
   const loadLeads = async () => {
