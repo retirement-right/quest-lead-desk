@@ -1,4 +1,4 @@
 project_id = "darysnuuhdjkwipbkpxd"
 
-[functions.bookedin-webhook]
+[functions.debug-lead]
 verify_jwt = false
