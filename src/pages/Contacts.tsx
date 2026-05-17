@@ -251,11 +251,19 @@ export default function Contacts() {
   };
 
   const sorted = useMemo(() => {
+    if (sortStage !== "none") {
+      const arr = [...filtered];
+      arr.sort((a, b) => {
+        const diff = stagePriority(a) - stagePriority(b);
+        return sortStage === "asc" ? diff : -diff;
+      });
+      return arr;
+    }
     if (sortRegistered === "none") return filtered;
     const arr = [...filtered];
     arr.sort((a, b) => sortRegistered === "asc" ? regTime(a) - regTime(b) : regTime(b) - regTime(a));
     return arr;
-  }, [filtered, sortRegistered]);
+  }, [filtered, sortRegistered, sortStage]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
