@@ -7,19 +7,29 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Mail, Phone, Clock } from "lucide-react";
-import {
-  format,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  addDays,
-  isSameDay,
-  addMonths,
-  isAfter,
-  isBefore,
-} from "date-fns";
+import { format, addMonths, isAfter, isBefore, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const TZ = "America/Phoenix";
+
+// YYYY-MM-DD key for the calendar day in Arizona
+const phxDayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ });
+// Local midnight Date object for the Arizona calendar day (used for Calendar UI comparisons)
+const phxDayDate = (d: Date) => {
+  const [y, m, day] = phxDayKey(d).split("-").map(Number);
+  return new Date(y, m - 1, day);
+};
+const fmtPhxTime = (d: Date) =>
+  d.toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
+const fmtPhxDateTime = (d: Date) =>
+  d.toLocaleString("en-US", {
+    timeZone: TZ,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const fullName = (l: Lead) => {
   const rp = (l.raw_payload ?? {}) as Record<string, any>;
@@ -30,6 +40,7 @@ const fullName = (l: Lead) => {
 interface Appt {
   lead: Lead;
   date: Date;
+  dayKey: string; // Arizona calendar day
 }
 
 const ORANGE_BTN =
@@ -74,31 +85,42 @@ export default function Appointments() {
       if (!l.appointment_at) continue;
       const d = new Date(l.appointment_at);
       if (isNaN(d.getTime())) continue;
-      out.push({ lead: l, date: d });
+      out.push({ lead: l, date: d, dayKey: phxDayKey(d) });
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [leads]);
 
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
+  const todayKey = phxDayKey(now);
+  const todayDate = phxDayDate(now); // local midnight matching Arizona today
 
-  const todays = appts.filter((a) => a.date >= todayStart && a.date <= todayEnd);
+  const todays = appts.filter((a) => a.dayKey === todayKey);
 
-  // Week: Monday → Saturday of current week
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 6 }, (_, i) => addDays(weekStart, i));
-  const weekAppts = (day: Date) =>
-    appts.filter((a) => isSameDay(a.date, day));
+  // Week: Monday → Saturday of current Arizona week
+  const [ty, tm, td] = todayKey.split("-").map(Number);
+  const refUTC = new Date(Date.UTC(ty, tm - 1, td, 12));
+  const dow = refUTC.getUTCDay(); // 0 = Sun
+  const mondayOffset = (dow + 6) % 7;
+  const weekDayKeys = Array.from({ length: 6 }, (_, i) => {
+    const dt = new Date(refUTC);
+    dt.setUTCDate(dt.getUTCDate() - mondayOffset + i);
+    return dt.toISOString().slice(0, 10);
+  });
+  const weekDayLabel = (key: string) => {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+  const weekAppts = (key: string) => appts.filter((a) => a.dayKey === key);
 
   // Upcoming
-  const horizonEnd = addMonths(todayStart, parseInt(horizon));
-  const upcoming = appts.filter(
-    (a) => !isBefore(a.date, todayStart) && !isAfter(a.date, horizonEnd),
-  );
-  const daysWithAppts = upcoming.map((a) => startOfDay(a.date));
+  const horizonEnd = addMonths(todayDate, parseInt(horizon));
+  const upcoming = appts.filter((a) => {
+    const dDate = phxDayDate(a.date);
+    return !isBefore(dDate, todayDate) && !isAfter(dDate, horizonEnd);
+  });
+  const daysWithAppts = upcoming.map((a) => phxDayDate(a.date));
   const selectedDayAppts = selectedDay
-    ? upcoming.filter((a) => isSameDay(a.date, selectedDay))
+    ? upcoming.filter((a) => isSameDay(phxDayDate(a.date), selectedDay))
     : [];
 
   const ApptRow = ({ a, showDate = false }: { a: Appt; showDate?: boolean }) => (
@@ -124,7 +146,7 @@ export default function Appointments() {
         </div>
         <Badge className={cn(ORANGE_BTN, "shrink-0")}>
           <Clock className="h-3 w-3 mr-1" />
-          {showDate ? format(a.date, "MMM d · h:mm a") : format(a.date, "h:mm a")}
+          {showDate ? fmtPhxDateTime(a.date) : fmtPhxTime(a.date)}
         </Badge>
       </div>
     </Link>
@@ -136,7 +158,7 @@ export default function Appointments() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Appointments</h1>
           <p className="text-sm text-muted-foreground">
-            {loading ? "Loading…" : `${appts.length} scheduled`}
+            {loading ? "Loading…" : `${appts.length} scheduled · Arizona time`}
           </p>
         </div>
         <Button className={ORANGE_BTN} onClick={() => navigate("/")}>
@@ -158,7 +180,7 @@ export default function Appointments() {
 
           <TabsContent value="today" className="space-y-3">
             <h2 className="text-sm text-muted-foreground">
-              {format(now, "EEEE, MMMM d")}
+              {format(todayDate, "EEEE, MMMM d")}
             </h2>
             {todays.length === 0 ? (
               <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
@@ -175,14 +197,15 @@ export default function Appointments() {
 
           <TabsContent value="week" className="space-y-4">
             <h2 className="text-sm text-muted-foreground">
-              Week of {format(weekStart, "MMM d, yyyy")}
+              Week of {format(weekDayLabel(weekDayKeys[0]), "MMM d, yyyy")}
             </h2>
             <div className="space-y-4">
-              {weekDays.map((day) => {
-                const list = weekAppts(day);
-                const isToday = isSameDay(day, now);
+              {weekDayKeys.map((key) => {
+                const list = weekAppts(key);
+                const dayDate = weekDayLabel(key);
+                const isToday = key === todayKey;
                 return (
-                  <div key={day.toISOString()}>
+                  <div key={key}>
                     <div className="flex items-center gap-2 mb-2">
                       <h3
                         className={cn(
@@ -190,9 +213,9 @@ export default function Appointments() {
                           isToday && "text-status-appointment",
                         )}
                       >
-                        {format(day, "EEEE")}
+                        {format(dayDate, "EEEE")}
                         <span className="text-muted-foreground font-normal ml-2 text-sm">
-                          {format(day, "MMM d")}
+                          {format(dayDate, "MMM d")}
                         </span>
                       </h3>
                       {list.length > 0 ? (
@@ -243,7 +266,7 @@ export default function Appointments() {
                   mode="single"
                   selected={selectedDay}
                   onSelect={setSelectedDay}
-                  fromDate={todayStart}
+                  fromDate={todayDate}
                   toDate={horizonEnd}
                   modifiers={{ hasAppt: daysWithAppts }}
                   modifiersClassNames={{
