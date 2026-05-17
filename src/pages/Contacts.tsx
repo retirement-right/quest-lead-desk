@@ -405,7 +405,9 @@ export default function Contacts() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{l.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{l.phone || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[260px] truncate" title={l.address || ""}>{l.address || "—"}</TableCell>
+                  {(() => { const addr = composedAddress(l); return (
+                    <TableCell className="text-muted-foreground max-w-[260px] truncate" title={addr}>{addr || "—"}</TableCell>
+                  ); })()}
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {(() => {
