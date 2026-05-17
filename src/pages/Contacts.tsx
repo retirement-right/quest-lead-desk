@@ -43,6 +43,59 @@ const fullName = (l: Lead) => {
   return "—";
 };
 
+// Raw lifecycle_stage badge — distinct from the human "Status" column.
+// Color picked per stage so hot leads pop visually.
+const STAGE_STYLES: Record<string, string> = {
+  hot_lead: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30",
+  warm_lead: "bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30",
+  cold_lead: "bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-1 ring-sky-500/30",
+  consultation_booked: "bg-status-appointment text-status-appointment-foreground",
+  appointment_set: "bg-status-appointment text-status-appointment-foreground",
+  new: "bg-muted text-muted-foreground ring-1 ring-border",
+  prospect: "bg-muted text-muted-foreground ring-1 ring-border",
+  nurture: "bg-violet-500/15 text-violet-700 dark:text-violet-300 ring-1 ring-violet-500/30",
+  client: "bg-status-client text-status-client-foreground",
+  lost: "bg-status-not-interested text-status-not-interested-foreground",
+  not_interested: "bg-status-not-interested text-status-not-interested-foreground",
+  cancelled: "bg-status-cancelled text-status-cancelled-foreground",
+};
+
+// Lower number = higher priority when sorting ascending
+const STAGE_PRIORITY: Record<string, number> = {
+  hot_lead: 0,
+  consultation_booked: 1,
+  appointment_set: 1,
+  warm_lead: 2,
+  nurture: 3,
+  new: 4,
+  prospect: 4,
+  cold_lead: 5,
+  client: 6,
+  lost: 7,
+  not_interested: 7,
+  cancelled: 8,
+};
+
+const stageKey = (l: Lead) => (l.lifecycle_stage ?? "").toLowerCase().trim();
+const stageLabel = (s: string) =>
+  s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Unknown";
+const stagePriority = (l: Lead) => STAGE_PRIORITY[stageKey(l)] ?? 99;
+
+function StageBadge({ stage }: { stage: string }) {
+  const cls = STAGE_STYLES[stage] ?? "bg-muted text-muted-foreground ring-1 ring-border";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+        cls,
+      )}
+    >
+      {stageLabel(stage)}
+    </span>
+  );
+}
+
+
 const composedAddress = (l: Lead): string => {
   const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
   const cp = ((l as any).client_profile ?? {}) as Record<string, any>;
