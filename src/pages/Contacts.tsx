@@ -456,7 +456,7 @@ export default function Contacts() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center">
+                <TableCell colSpan={8} className="h-32 text-center">
                   <Loader2 className="h-5 w-5 animate-spin inline text-muted-foreground" />
                 </TableCell>
               </TableRow>
