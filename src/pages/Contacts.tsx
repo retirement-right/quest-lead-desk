@@ -164,7 +164,7 @@ export default function Contacts() {
         l.email,
         l.phone,
         l.event_name,
-        l.address,
+        composedAddress(l),
       ]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
