@@ -99,8 +99,9 @@ export default function Appointments() {
   // Week: Monday → Saturday of current Arizona week
   const [ty, tm, td] = todayKey.split("-").map(Number);
   const refUTC = new Date(Date.UTC(ty, tm - 1, td, 12));
-  const dow = refUTC.getUTCDay(); // 0 = Sun
-  const mondayOffset = (dow + 6) % 7;
+  const dow = refUTC.getUTCDay(); // 0 = Sun, 1 = Mon, ...
+  // On Sunday, jump forward to the upcoming Monday; otherwise use this week's Monday.
+  const mondayOffset = dow === 0 ? -1 : dow - 1;
   const weekDayKeys = Array.from({ length: 6 }, (_, i) => {
     const dt = new Date(refUTC);
     dt.setUTCDate(dt.getUTCDate() - mondayOffset + i);
