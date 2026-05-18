@@ -96,6 +96,29 @@ function StageBadge({ stage }: { stage: string }) {
 }
 
 
+const seminarVenue = (l: Lead): string | null => {
+  const cp = ((l as any).client_profile ?? {}) as Record<string, any>;
+  const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
+  const manual = cp.seminar_location ?? cp.venue ?? cp.event_location;
+  if (manual && String(manual).trim()) return String(manual).trim();
+  const raw =
+    rp.venue ?? rp.location ?? rp.event_location ?? rp.event_venue ?? l.event_name ?? null;
+  if (!raw) return null;
+  let s = String(raw).trim();
+  // Take the first chunk before separators like " - ", " | ", " – "
+  s = s.split(/\s+[-|–—:]\s+/)[0];
+  // Strip trailing date patterns: 2026-05-16, 05/16/2026, May 16, May 16 2026
+  s = s.replace(/[\s,(-]*\(?(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\)?[\s)]*$/, "");
+  s = s.replace(
+    /[\s,(-]*(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z.]*\s*\d{1,2}(,?\s*\d{2,4})?\s*\)?\s*$/i,
+    "",
+  );
+  // Strip trailing standalone year
+  s = s.replace(/[\s,(-]*\(?(19|20)\d{2}\)?\s*$/, "");
+  s = s.replace(/[\s,–—-]+$/, "").trim();
+  return s || null;
+};
+
 const composedAddress = (l: Lead): string => {
   const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
   const cp = ((l as any).client_profile ?? {}) as Record<string, any>;
