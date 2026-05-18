@@ -234,6 +234,35 @@ export default function Contacts() {
           prev.map((l) => (repairIds.includes(l.id) ? { ...l, lifecycle_stage: "hot_lead" } : l)),
         );
       }
+
+      // Clear phantom appointment_at for contacts whose stage is not an
+      // appointment-bearing stage. Only "consultation_booked" / "appointment_set"
+      // should have an appointment date.
+      const APPT_STAGES = new Set(["consultation_booked", "appointment_set"]);
+      const phantomAppt = all.filter((l) => {
+        if (!l.appointment_at) return false;
+        const stage = (l.lifecycle_stage ?? "").toLowerCase().trim();
+        // Use repaired stage for attended leads (hot_lead)
+        const effective = isAttendedLead(l) ? "hot_lead" : stage;
+        return !APPT_STAGES.has(effective);
+      });
+      if (phantomAppt.length > 0) {
+        const apptIds = phantomAppt.map((l) => l.id);
+        for (let i = 0; i < apptIds.length; i += 100) {
+          const ids = apptIds.slice(i, i + 100);
+          const { error } = await supabase
+            .from("leadjig_leads")
+            .update({ appointment_at: null })
+            .in("id", ids);
+          if (error) {
+            console.error("Failed to clear phantom appointments", error);
+            break;
+          }
+        }
+        setLeads((prev) =>
+          prev.map((l) => (apptIds.includes(l.id) ? { ...l, appointment_at: null } : l)),
+        );
+      }
     }
     setLoading(false);
   };
