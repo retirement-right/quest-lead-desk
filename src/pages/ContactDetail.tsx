@@ -67,6 +67,7 @@ export default function ContactDetail() {
   const [cpNetWorth, setCpNetWorth] = useState<string>("");
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
+  const [cpSeminarLocation, setCpSeminarLocation] = useState<string>("");
 
   // Follow-up fields
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
@@ -166,6 +167,7 @@ export default function ContactDetail() {
         setCpNetWorth(cp.net_worth ?? "");
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
+        setCpSeminarLocation(cp.seminar_location ?? "");
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
@@ -214,6 +216,7 @@ export default function ContactDetail() {
         net_worth: cpNetWorth || null,
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
+        seminar_location: cpSeminarLocation.trim() || null,
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
@@ -440,6 +443,15 @@ export default function ContactDetail() {
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
             <ReadOnly label="Event name" value={lead.event_name} />
+            <div className="space-y-1.5">
+              <Label htmlFor="seminar_location">Seminar Location</Label>
+              <Input
+                id="seminar_location"
+                value={cpSeminarLocation}
+                onChange={(e) => setCpSeminarLocation(e.target.value)}
+                placeholder="e.g. Queen Creek Library"
+              />
+            </div>
             <ReadOnly
               label="Seminar Date"
               value={(() => {
