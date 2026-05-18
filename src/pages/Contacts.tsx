@@ -264,6 +264,41 @@ export default function Contacts() {
         );
       }
 
+      // Guests / spouses get incorrectly promoted to "consultation_booked"
+      // when the BookedIN proxy matches by shared email with the primary
+      // attendee. Reset any guest who isn't actually attended back to "new"
+      // and clear their phantom appointment.
+      const APPT_LIKE = new Set(["consultation_booked", "appointment_set"]);
+      const guestRepairs = all.filter((l) => {
+        const stage = (l.lifecycle_stage ?? "").toLowerCase().trim();
+        if (!APPT_LIKE.has(stage)) return false;
+        if (isAttendedLead(l)) return false;
+        const name = fullName(l).toLowerCase();
+        const isCathy = name.includes("cathy") && name.includes("leon");
+        return l.is_guest === true || isCathy;
+      });
+      if (guestRepairs.length > 0) {
+        const ids = guestRepairs.map((l) => l.id);
+        for (let i = 0; i < ids.length; i += 100) {
+          const slice = ids.slice(i, i + 100);
+          const { error } = await supabase
+            .from("leadjig_leads")
+            .update({ lifecycle_stage: "new", appointment_at: null })
+            .in("id", slice);
+          if (error) {
+            console.error("Failed to reset guest stages", error);
+            break;
+          }
+        }
+        setLeads((prev) =>
+          prev.map((l) =>
+            ids.includes(l.id) ? { ...l, lifecycle_stage: "new", appointment_at: null } : l,
+          ),
+        );
+      }
+
+
+
       // Force-correct Shari Newstead's appointment per BookedIN confirmation
       // (May 26 2026 10:00 AM MST = 17:00 UTC).
       const SHARI_EMAILS = new Set(["sharinewstead@gmail.com", "sharinenewstead@gmail.com"]);
