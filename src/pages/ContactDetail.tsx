@@ -443,6 +443,15 @@ export default function ContactDetail() {
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
             <ReadOnly label="Event name" value={lead.event_name} />
+            <div className="space-y-1.5">
+              <Label htmlFor="seminar_location">Seminar Location</Label>
+              <Input
+                id="seminar_location"
+                value={cpSeminarLocation}
+                onChange={(e) => setCpSeminarLocation(e.target.value)}
+                placeholder="e.g. Queen Creek Library"
+              />
+            </div>
             <ReadOnly
               label="Seminar Date"
               value={(() => {
