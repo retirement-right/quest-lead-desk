@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage, NET_WORTH_OPTIONS, PRIMARY_CONCERN_OPTIONS } from "@/lib/supabase";
+import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage, NET_WORTH_OPTIONS, PRIMARY_CONCERN_OPTIONS, effectiveLifecycleStage, isAttendedLead } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +115,7 @@ export default function ContactDetail() {
       if (data) {
         const l = data as Lead;
         setLead(l);
-        setStatus(stageToLabel(l.lifecycle_stage));
+        setStatus(stageToLabel(effectiveLifecycleStage(l)));
         setAppointment(toLocalInput(l.appointment_at));
         setNotes(l.notes ?? "");
         setBirthdate(l.date_of_birth ? parseISO(l.date_of_birth) : undefined);
@@ -159,7 +159,8 @@ export default function ContactDetail() {
       first_name: fn || null,
       last_name: ln || null,
     };
-    const newStage = status ? labelToStage(status) : null;
+    let newStage = status ? labelToStage(status) : null;
+    if (lead && isAttendedLead(lead) && newStage === "new") newStage = "hot_lead";
     const prevStage = lead?.lifecycle_stage ?? null;
     const stageChanged = newStage !== prevStage;
     const payload = {
@@ -351,7 +352,7 @@ export default function ContactDetail() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{fullName}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <StatusBadge status={stageToLabel(lead.lifecycle_stage)} />
+              <StatusBadge status={stageToLabel(effectiveLifecycleStage(lead))} />
               {lead.event_name && <span className="text-sm text-muted-foreground">· {lead.event_name}</span>}
             </div>
           </div>
