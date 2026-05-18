@@ -12,6 +12,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 export type LeadStatus =
+  | "Hot Lead"
   | "Prospect"
   | "Client"
   | "Not Interested"
@@ -68,6 +69,7 @@ export interface LeadDocument {
 }
 
 export const STATUS_OPTIONS: LeadStatus[] = [
+  "Hot Lead",
   "Prospect",
   "Appointment Set",
   "Client",
@@ -76,6 +78,9 @@ export const STATUS_OPTIONS: LeadStatus[] = [
 ];
 
 const DB_TO_LABEL: Record<string, LeadStatus> = {
+  hot_lead: "Hot Lead",
+  warm_lead: "Prospect",
+  cold_lead: "Prospect",
   new: "Prospect",
   prospect: "Prospect",
   consultation_booked: "Appointment Set",
@@ -87,6 +92,7 @@ const DB_TO_LABEL: Record<string, LeadStatus> = {
 };
 
 const LABEL_TO_DB: Record<LeadStatus, string> = {
+  "Hot Lead": "hot_lead",
   Prospect: "new",
   "Appointment Set": "consultation_booked",
   Client: "client",
