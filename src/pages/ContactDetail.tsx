@@ -216,6 +216,7 @@ export default function ContactDetail() {
         net_worth: cpNetWorth || null,
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
+        seminar_location: cpSeminarLocation.trim() || null,
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
