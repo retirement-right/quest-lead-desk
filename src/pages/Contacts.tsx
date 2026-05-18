@@ -263,6 +263,32 @@ export default function Contacts() {
           prev.map((l) => (apptIds.includes(l.id) ? { ...l, appointment_at: null } : l)),
         );
       }
+
+      // Force-correct Shari Newstead's appointment per BookedIN confirmation
+      // (May 26 2026 10:00 AM MST = 17:00 UTC).
+      const SHARI_EMAILS = new Set(["sharinewstead@gmail.com", "sharinenewstead@gmail.com"]);
+      const CORRECT_SHARI_APPT = "2026-05-26T17:00:00.000Z";
+      const shariLeads = all.filter(
+        (l) => l.email && SHARI_EMAILS.has(l.email.trim().toLowerCase()) && l.appointment_at !== CORRECT_SHARI_APPT,
+      );
+      if (shariLeads.length > 0) {
+        const ids = shariLeads.map((l) => l.id);
+        const { error } = await supabase
+          .from("leadjig_leads")
+          .update({ appointment_at: CORRECT_SHARI_APPT, lifecycle_stage: "consultation_booked" })
+          .in("id", ids);
+        if (error) {
+          console.error("Failed to fix Shari's appointment", error);
+        } else {
+          setLeads((prev) =>
+            prev.map((l) =>
+              ids.includes(l.id)
+                ? { ...l, appointment_at: CORRECT_SHARI_APPT, lifecycle_stage: "consultation_booked" }
+                : l,
+            ),
+          );
+        }
+      }
     }
     setLoading(false);
   };

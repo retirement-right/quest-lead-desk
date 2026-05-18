@@ -113,7 +113,39 @@ export default function ContactDetail() {
         .maybeSingle();
       if (error) toast.error(error.message);
       if (data) {
-        const l = data as Lead;
+        let l = data as Lead;
+
+        // Auto-repair: clear phantom appointment_at if this contact is not in
+        // an appointment-bearing stage. Also force-correct Shari Newstead's
+        // appointment (BookedIN confirmed May 26 2026 10:00 AM AZ time).
+        const APPT_STAGES = new Set(["consultation_booked", "appointment_set"]);
+        const stage = (effectiveLifecycleStage(l) ?? "").toLowerCase().trim();
+        const SHARI_EMAILS = new Set(["sharinewstead@gmail.com", "sharinenewstead@gmail.com"]);
+        const isShari = !!l.email && SHARI_EMAILS.has(l.email.trim().toLowerCase());
+        const CORRECT_SHARI_APPT = "2026-05-26T17:00:00.000Z"; // 10:00 AM MST (UTC-7)
+
+        const updates: Record<string, any> = {};
+        if (isShari) {
+          if (l.appointment_at !== CORRECT_SHARI_APPT) {
+            updates.appointment_at = CORRECT_SHARI_APPT;
+          }
+          if (!APPT_STAGES.has(stage)) {
+            updates.lifecycle_stage = "consultation_booked";
+          }
+        } else if (l.appointment_at && !APPT_STAGES.has(stage)) {
+          updates.appointment_at = null;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          const { data: fixed, error: fixErr } = await supabase
+            .from("leadjig_leads")
+            .update(updates)
+            .eq("id", l.id)
+            .select()
+            .maybeSingle();
+          if (!fixErr && fixed) l = fixed as Lead;
+        }
+
         setLead(l);
         setStatus(stageToLabel(effectiveLifecycleStage(l)));
         setAppointment(toLocalInput(l.appointment_at));
