@@ -67,6 +67,7 @@ export default function ContactDetail() {
   const [cpNetWorth, setCpNetWorth] = useState<string>("");
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
+  const [cpSeminarLocation, setCpSeminarLocation] = useState<string>("");
 
   // Follow-up fields
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
