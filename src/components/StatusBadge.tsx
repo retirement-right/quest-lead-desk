@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const styles: Record<string, string> = {
+  "Hot Lead": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30",
   Prospect: "bg-status-prospect text-status-prospect-foreground",
   Client: "bg-status-client text-status-client-foreground",
   "Not Interested": "bg-status-not-interested text-status-not-interested-foreground",
