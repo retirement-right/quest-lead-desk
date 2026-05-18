@@ -408,13 +408,20 @@ export default function ContactDetail() {
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
             <ReadOnly label="Event name" value={lead.event_name} />
-            <ReadOnly label="Event date" value={lead.event_date} />
             <ReadOnly
-              label="Registration date"
+              label="Seminar Date"
               value={(() => {
-                const raw = (lead.raw_payload as any)?.registration_date || lead.created_at;
-                if (!raw) return null;
-                const d = new Date(raw);
+                if (!lead.event_date) return null;
+                const d = new Date(lead.event_date);
+                return isNaN(d.getTime()) ? lead.event_date : format(d, "MMMM d, yyyy");
+              })()}
+            />
+            <ReadOnly
+              label="Appointment"
+              value={(() => {
+                const appt = lead.appointment_at;
+                if (!appt) return null;
+                const d = new Date(appt);
                 return isNaN(d.getTime()) ? null : format(d, "MMMM d, yyyy 'at' h:mm a");
               })()}
             />
