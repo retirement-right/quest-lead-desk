@@ -324,6 +324,136 @@ export default function Contacts() {
           );
         }
       }
+
+      // --- One-off data corrections ---------------------------------------
+
+      // 1) Queen Creek seminar event_date was imported as 2026-05-15 but the
+      //    actual event was 2026-05-16. Backfill any lead whose event_date
+      //    falls on 2026-05-15 to 2026-05-16 (preserve original time-of-day).
+      const wrongDateLeads = all.filter((l) => {
+        if (!l.event_date) return false;
+        const d = new Date(l.event_date);
+        if (isNaN(d.getTime())) return false;
+        // Compare on UTC date portion
+        return l.event_date.slice(0, 10) === "2026-05-15";
+      });
+      if (wrongDateLeads.length > 0) {
+        const updates = wrongDateLeads.map((l) => ({
+          id: l.id,
+          newDate: (l.event_date as string).replace("2026-05-15", "2026-05-16"),
+        }));
+        for (const u of updates) {
+          const { error } = await supabase
+            .from("leadjig_leads")
+            .update({ event_date: u.newDate })
+            .eq("id", u.id);
+          if (error) {
+            console.error("Failed to fix Queen Creek event_date", error);
+            break;
+          }
+        }
+        const fixMap = new Map(updates.map((u) => [u.id, u.newDate]));
+        setLeads((prev) =>
+          prev.map((l) => (fixMap.has(l.id) ? { ...l, event_date: fixMap.get(l.id)! } : l)),
+        );
+      }
+
+      // 2) John Hooper is a guest with no real appointment — reset to "new".
+      const johnHoopers = all.filter((l) => {
+        const name = fullName(l).toLowerCase();
+        return name.includes("john") && name.includes("hooper");
+      });
+      if (johnHoopers.length > 0) {
+        const ids = johnHoopers.map((l) => l.id);
+        const { error } = await supabase
+          .from("leadjig_leads")
+          .update({ lifecycle_stage: "new", appointment_at: null })
+          .in("id", ids);
+        if (error) {
+          console.error("Failed to reset John Hooper", error);
+        } else {
+          setLeads((prev) =>
+            prev.map((l) =>
+              ids.includes(l.id) ? { ...l, lifecycle_stage: "new", appointment_at: null } : l,
+            ),
+          );
+        }
+      }
+
+      // 3 & 4) Merge duplicates for Cathy Leon and Shari Newstead.
+      //   Strategy: pick a keeper (prefers a record with appointment_at, else
+      //   oldest by created_at) and delete the other duplicates. For Shari we
+      //   also ensure the keeper has the correct BookedIN appointment.
+      const mergeGroups: Array<{
+        match: (l: Lead) => boolean;
+        keeperUpdate?: Record<string, any>;
+      }> = [
+        {
+          match: (l) => {
+            const n = fullName(l).toLowerCase();
+            return n.includes("cathy") && n.includes("leon");
+          },
+        },
+        {
+          match: (l) => {
+            const n = fullName(l).toLowerCase();
+            const e = (l.email ?? "").toLowerCase();
+            return (
+              (n.includes("shari") && n.includes("newstead")) ||
+              SHARI_EMAILS.has(e.trim())
+            );
+          },
+          keeperUpdate: {
+            appointment_at: CORRECT_SHARI_APPT,
+            lifecycle_stage: "consultation_booked",
+          },
+        },
+      ];
+      for (const g of mergeGroups) {
+        const group = all.filter(g.match);
+        if (group.length < 2) {
+          // Still apply keeperUpdate to the single record if present
+          if (group.length === 1 && g.keeperUpdate) {
+            await supabase
+              .from("leadjig_leads")
+              .update(g.keeperUpdate)
+              .eq("id", group[0].id);
+          }
+          continue;
+        }
+        const sorted = [...group].sort((a, b) => {
+          const aHas = a.appointment_at ? 1 : 0;
+          const bHas = b.appointment_at ? 1 : 0;
+          if (aHas !== bHas) return bHas - aHas;
+          const aT = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bT = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return aT - bT;
+        });
+        const keeper = sorted[0];
+        const dupes = sorted.slice(1);
+        if (g.keeperUpdate) {
+          await supabase
+            .from("leadjig_leads")
+            .update(g.keeperUpdate)
+            .eq("id", keeper.id);
+        }
+        const dupeIds = dupes.map((d) => d.id);
+        const { error: delErr } = await supabase
+          .from("leadjig_leads")
+          .delete()
+          .in("id", dupeIds);
+        if (delErr) {
+          console.error("Failed to delete duplicate leads", delErr);
+        } else {
+          setLeads((prev) =>
+            prev
+              .filter((l) => !dupeIds.includes(l.id))
+              .map((l) =>
+                l.id === keeper.id && g.keeperUpdate ? { ...l, ...g.keeperUpdate } : l,
+              ),
+          );
+        }
+      }
     }
     setLoading(false);
   };
