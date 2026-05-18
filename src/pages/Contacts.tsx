@@ -617,12 +617,19 @@ export default function Contacts() {
                   <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {(() => {
-                      const raw = (l.raw_payload as any)?.registration_date || l.created_at;
-                      if (!raw) return "—";
-                      const d = new Date(raw);
-                      return isNaN(d.getTime()) ? "—" : format(d, "MMM d, yyyy h:mm a");
+                      const seminar = l.event_date ? new Date(l.event_date) : null;
+                      const seminarStr = seminar && !isNaN(seminar.getTime()) ? format(seminar, "MM/dd/yyyy") : "—";
+                      const appt = l.appointment_at ? new Date(l.appointment_at) : null;
+                      const apptStr = appt && !isNaN(appt.getTime()) ? format(appt, "MM/dd/yyyy h:mm a") : null;
+                      return (
+                        <div className="flex flex-col leading-tight">
+                          <span>{seminarStr}</span>
+                          {apptStr && <span className="text-xs text-foreground/70">{apptStr}</span>}
+                        </div>
+                      );
                     })()}
                   </TableCell>
+
                   <TableCell>
                     <StageBadge stage={stageKey(l)} />
                   </TableCell>
