@@ -213,6 +213,27 @@ export default function Contacts() {
         deduped.push(l);
       }
       setLeads(deduped);
+
+      const attendedNeedingRepair = all.filter(
+        (l) => isAttendedLead(l) && (l.lifecycle_stage ?? "").toLowerCase().trim() !== "hot_lead",
+      );
+      if (attendedNeedingRepair.length > 0) {
+        const repairIds = attendedNeedingRepair.map((l) => l.id);
+        for (let i = 0; i < repairIds.length; i += 100) {
+          const ids = repairIds.slice(i, i + 100);
+          const { error } = await supabase
+            .from("leadjig_leads")
+            .update({ lifecycle_stage: "hot_lead" })
+            .in("id", ids);
+          if (error) {
+            console.error("Failed to repair attended lead stages", error);
+            break;
+          }
+        }
+        setLeads((prev) =>
+          prev.map((l) => (repairIds.includes(l.id) ? { ...l, lifecycle_stage: "hot_lead" } : l)),
+        );
+      }
     }
     setLoading(false);
   };
