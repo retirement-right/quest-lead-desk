@@ -167,6 +167,7 @@ export default function ContactDetail() {
         setCpNetWorth(cp.net_worth ?? "");
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
+        setCpSeminarLocation(cp.seminar_location ?? "");
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
