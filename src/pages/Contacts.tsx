@@ -744,19 +744,25 @@ export default function Contacts() {
                   {(() => { const addr = composedAddress(l); return (
                     <TableCell className="text-muted-foreground max-w-[260px] truncate" title={addr}>{addr || "—"}</TableCell>
                   ); })()}
-                  <TableCell className="text-muted-foreground">{l.event_name || "—"}</TableCell>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
                     {(() => {
+                      const venue = seminarVenue(l);
                       const seminar = l.event_date ? new Date(l.event_date) : null;
-                      const seminarStr = seminar && !isNaN(seminar.getTime()) ? format(seminar, "MM/dd/yyyy") : "—";
-                      const appt = l.appointment_at ? new Date(l.appointment_at) : null;
-                      const apptStr = appt && !isNaN(appt.getTime()) ? format(appt, "MM/dd/yyyy h:mm a") : null;
+                      const dateStr = seminar && !isNaN(seminar.getTime()) ? format(seminar, "MM/dd/yyyy") : null;
+                      if (!venue && !dateStr) return "—";
                       return (
                         <div className="flex flex-col leading-tight">
-                          <span>{seminarStr}</span>
-                          {apptStr && <span className="text-xs text-foreground/70">{apptStr}</span>}
+                          <span>{venue || "—"}</span>
+                          <span className="text-xs text-foreground/70">{dateStr || "—"}</span>
                         </div>
                       );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                    {(() => {
+                      const appt = l.appointment_at ? new Date(l.appointment_at) : null;
+                      const apptStr = appt && !isNaN(appt.getTime()) ? format(appt, "MM/dd/yyyy h:mm a") : null;
+                      return apptStr || "—";
                     })()}
                   </TableCell>
 
