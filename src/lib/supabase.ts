@@ -12,6 +12,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 export type LeadStatus =
+  | "Hot Lead"
   | "Prospect"
   | "Client"
   | "Not Interested"
@@ -29,6 +30,7 @@ export interface Lead {
   event_name: string | null;
   event_date: string | null;
   lifecycle_stage: string | null;
+  attended_status?: string | null;
   appointment_at?: string | null;
   notes?: string | null;
   raw_payload?: Record<string, any> | null;
@@ -68,6 +70,7 @@ export interface LeadDocument {
 }
 
 export const STATUS_OPTIONS: LeadStatus[] = [
+  "Hot Lead",
   "Prospect",
   "Appointment Set",
   "Client",
@@ -76,6 +79,9 @@ export const STATUS_OPTIONS: LeadStatus[] = [
 ];
 
 const DB_TO_LABEL: Record<string, LeadStatus> = {
+  hot_lead: "Hot Lead",
+  warm_lead: "Prospect",
+  cold_lead: "Prospect",
   new: "Prospect",
   prospect: "Prospect",
   consultation_booked: "Appointment Set",
@@ -87,6 +93,7 @@ const DB_TO_LABEL: Record<string, LeadStatus> = {
 };
 
 const LABEL_TO_DB: Record<LeadStatus, string> = {
+  "Hot Lead": "hot_lead",
   Prospect: "new",
   "Appointment Set": "consultation_booked",
   Client: "client",
@@ -100,3 +107,30 @@ export const stageToLabel = (stage?: string | null): LeadStatus => {
 };
 
 export const labelToStage = (label: string): string => LABEL_TO_DB[label as LeadStatus] ?? label;
+
+export const isAttendedLead = (lead: Pick<Lead, "attended_status" | "raw_payload" | "client_profile">): boolean => {
+  const sources = [lead, lead.raw_payload ?? {}, lead.client_profile ?? {}] as Record<string, any>[];
+  const keys = ["attended_status", "attendance_status", "attended", "attendance", "checked_in", "check_in_status"];
+
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value == null || value === "") continue;
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value === 1;
+
+      const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (["not_attended", "did_not_attend", "no_show", "noshow", "absent", "false", "no"].includes(normalized)) {
+        return false;
+      }
+      if (["attended", "present", "checked_in", "check_in", "yes", "true", "1"].includes(normalized)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+export const effectiveLifecycleStage = (lead: Lead): string | null =>
+  isAttendedLead(lead) ? "hot_lead" : lead.lifecycle_stage;

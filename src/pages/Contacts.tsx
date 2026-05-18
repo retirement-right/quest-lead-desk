@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, Lead, STATUS_OPTIONS, stageToLabel, labelToStage, LeadStatus } from "@/lib/supabase";
+import { supabase, Lead, STATUS_OPTIONS, stageToLabel, labelToStage, LeadStatus, effectiveLifecycleStage, isAttendedLead } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ const STAGE_PRIORITY: Record<string, number> = {
   cancelled: 8,
 };
 
-const stageKey = (l: Lead) => (l.lifecycle_stage ?? "").toLowerCase().trim();
+const stageKey = (l: Lead) => (effectiveLifecycleStage(l) ?? "").toLowerCase().trim();
 const stageLabel = (s: string) =>
   s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Unknown";
 const stagePriority = (l: Lead) => STAGE_PRIORITY[stageKey(l)] ?? 99;
@@ -213,6 +213,27 @@ export default function Contacts() {
         deduped.push(l);
       }
       setLeads(deduped);
+
+      const attendedNeedingRepair = all.filter(
+        (l) => isAttendedLead(l) && (l.lifecycle_stage ?? "").toLowerCase().trim() !== "hot_lead",
+      );
+      if (attendedNeedingRepair.length > 0) {
+        const repairIds = attendedNeedingRepair.map((l) => l.id);
+        for (let i = 0; i < repairIds.length; i += 100) {
+          const ids = repairIds.slice(i, i + 100);
+          const { error } = await supabase
+            .from("leadjig_leads")
+            .update({ lifecycle_stage: "hot_lead" })
+            .in("id", ids);
+          if (error) {
+            console.error("Failed to repair attended lead stages", error);
+            break;
+          }
+        }
+        setLeads((prev) =>
+          prev.map((l) => (repairIds.includes(l.id) ? { ...l, lifecycle_stage: "hot_lead" } : l)),
+        );
+      }
     }
     setLoading(false);
   };
@@ -228,7 +249,7 @@ export default function Contacts() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return leads.filter((l) => {
-      if (status !== "all" && stageToLabel(l.lifecycle_stage) !== status) return false;
+      if (status !== "all" && stageToLabel(effectiveLifecycleStage(l)) !== status) return false;
       if (optOutOnly && !l.do_not_email) return false;
       if (!needle) return true;
       return [
@@ -338,7 +359,8 @@ export default function Contacts() {
 
   const handleStatusChange = async (lead: Lead, newStatus: LeadStatus) => {
     const prevStage = lead.lifecycle_stage;
-    const newStage = labelToStage(newStatus);
+    let newStage = labelToStage(newStatus);
+    if (isAttendedLead(lead) && newStage === "new") newStage = "hot_lead";
     if (prevStage === newStage) return;
     const prevLabel = stageToLabel(prevStage);
     setLeads((prev) => prev.map((x) => (x.id === lead.id ? { ...x, lifecycle_stage: newStage } : x)));
@@ -469,7 +491,7 @@ export default function Contacts() {
             ) : (
               pageLeads.map((l) => {
                 const fu = followUpState(l);
-                const currentStatus = stageToLabel(l.lifecycle_stage);
+                const currentStatus = stageToLabel(effectiveLifecycleStage(l));
                 return (
                 <TableRow key={l.id} className="cursor-pointer">
                   <TableCell className="font-medium">
