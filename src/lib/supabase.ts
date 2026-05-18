@@ -30,6 +30,7 @@ export interface Lead {
   event_name: string | null;
   event_date: string | null;
   lifecycle_stage: string | null;
+  attended_status?: string | null;
   appointment_at?: string | null;
   notes?: string | null;
   raw_payload?: Record<string, any> | null;
@@ -106,3 +107,30 @@ export const stageToLabel = (stage?: string | null): LeadStatus => {
 };
 
 export const labelToStage = (label: string): string => LABEL_TO_DB[label as LeadStatus] ?? label;
+
+export const isAttendedLead = (lead: Pick<Lead, "attended_status" | "raw_payload" | "client_profile">): boolean => {
+  const sources = [lead, lead.raw_payload ?? {}, lead.client_profile ?? {}] as Record<string, any>[];
+  const keys = ["attended_status", "attendance_status", "attended", "attendance", "checked_in", "check_in_status"];
+
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value == null || value === "") continue;
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value === 1;
+
+      const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (["not_attended", "did_not_attend", "no_show", "noshow", "absent", "false", "no"].includes(normalized)) {
+        return false;
+      }
+      if (["attended", "present", "checked_in", "check_in", "yes", "true", "1"].includes(normalized)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+export const effectiveLifecycleStage = (lead: Lead): string | null =>
+  isAttendedLead(lead) ? "hot_lead" : lead.lifecycle_stage;
