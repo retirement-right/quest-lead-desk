@@ -323,7 +323,7 @@ export default function Appointments() {
             ) : (
               <div className="space-y-2">
                 {todays.map((a) => (
-                  <ApptRow key={a.lead.id} a={a} />
+                  <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                 ))}
               </div>
             )}
@@ -365,7 +365,7 @@ export default function Appointments() {
                     {list.length > 0 && (
                       <div className="space-y-2 pl-1">
                         {list.map((a) => (
-                          <ApptRow key={a.lead.id} a={a} />
+                          <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                         ))}
                       </div>
                     )}
@@ -425,7 +425,7 @@ export default function Appointments() {
                   ) : (
                     <div className="space-y-2">
                       {selectedDayAppts.map((a) => (
-                        <ApptRow key={a.lead.id} a={a} />
+                        <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                       ))}
                     </div>
                   )
@@ -441,7 +441,7 @@ export default function Appointments() {
                       Next up
                     </h4>
                     {upcoming.slice(0, 5).map((a) => (
-                      <ApptRow key={a.lead.id} a={a} showDate />
+                      <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} showDate />
                     ))}
                   </div>
                 )}
