@@ -169,34 +169,50 @@ export default function Appointments() {
     ? upcoming.filter((a) => isSameDay(phxDayDate(a.date), selectedDay))
     : [];
 
-  const ApptRow = ({ a, showDate = false }: { a: Appt; showDate?: boolean }) => (
-    <Link
-      to={`/contacts/${a.lead.id}`}
-      className="block rounded-lg border bg-card p-3 hover:bg-muted/60 transition-colors"
-    >
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <div className="font-medium truncate">{fullName(a.lead)}</div>
-          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-            {a.lead.phone && (
-              <span className="inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {a.lead.phone}
-              </span>
-            )}
-            {a.lead.email && (
-              <span className="inline-flex items-center gap-1 truncate">
-                <Mail className="h-3 w-3" /> {a.lead.email}
-              </span>
-            )}
+  const ApptRow = ({ a, showDate = false }: { a: Appt; showDate?: boolean }) => {
+    const isPseudo = String(a.lead.id).startsWith("bookedin:");
+    const body = (
+      <>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="font-medium truncate">
+              {fullName(a.lead)}
+              {isPseudo && (
+                <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+                  BookedIn · unmatched
+                </Badge>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {a.lead.phone && (
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {a.lead.phone}
+                </span>
+              )}
+              {a.lead.email && (
+                <span className="inline-flex items-center gap-1 truncate">
+                  <Mail className="h-3 w-3" /> {a.lead.email}
+                </span>
+              )}
+            </div>
           </div>
+          <Badge className={cn(ORANGE_BTN, "shrink-0")}>
+            <Clock className="h-3 w-3 mr-1" />
+            {showDate ? fmtPhxDateTime(a.date) : fmtPhxTime(a.date)}
+          </Badge>
         </div>
-        <Badge className={cn(ORANGE_BTN, "shrink-0")}>
-          <Clock className="h-3 w-3 mr-1" />
-          {showDate ? fmtPhxDateTime(a.date) : fmtPhxTime(a.date)}
-        </Badge>
-      </div>
-    </Link>
-  );
+      </>
+    );
+    const className =
+      "block rounded-lg border bg-card p-3 hover:bg-muted/60 transition-colors";
+    return isPseudo ? (
+      <div className={className}>{body}</div>
+    ) : (
+      <Link to={`/contacts/${a.lead.id}`} className={className}>
+        {body}
+      </Link>
+    );
+  };
 
   return (
     <div className="space-y-6">
