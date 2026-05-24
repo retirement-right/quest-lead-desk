@@ -174,11 +174,42 @@ Deno.serve(async (req) => {
     }
   }
 
+  // The proxy edge function on the leadjig project does not persist
+  // appointment_at — patch it directly here using the leadjig service role
+  // so the Status panel reflects the real booked time.
+  let appointmentPatchError: string | null = null;
+  if (!skipForward && apptDateIso && status !== "cancelled") {
+    try {
+      const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
+      const LEADJIG_KEY = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
+      const patchResp = await fetch(
+        `${LEADJIG_URL}/rest/v1/leadjig_leads?email=eq.${encodeURIComponent(email)}`,
+        {
+          method: "PATCH",
+          headers: {
+            apikey: LEADJIG_KEY,
+            Authorization: `Bearer ${LEADJIG_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ appointment_at: apptDateIso }),
+        },
+      );
+      if (!patchResp.ok) {
+        appointmentPatchError = `appointment_at patch ${patchResp.status}: ${await patchResp.text()}`;
+        console.error(appointmentPatchError);
+      }
+    } catch (e) {
+      appointmentPatchError = e instanceof Error ? e.message : String(e);
+      console.error("appointment_at patch failed", appointmentPatchError);
+    }
+  }
+
   await cloud
     .from("bookedin_appointments")
     .update({
       processed_at: new Date().toISOString(),
-      process_error: processError ?? skippedReason,
+      process_error: processError ?? appointmentPatchError ?? skippedReason,
     })
     .eq("id", logRow.id);
 
