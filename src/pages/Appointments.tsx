@@ -132,8 +132,8 @@ export default function Appointments() {
         const { data, error } = await cloudSupabase
           .from("bookedin_appointments")
           .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload")
-          .not("appointment_date", "is", null)
           .in("appointment_status", ["booked", "rescheduled", "confirmed"])
+          .order("created_at", { ascending: true })
           .range(bFrom, bFrom + CHUNK - 1);
         if (error) {
           toast.error(error.message);
@@ -151,27 +151,32 @@ export default function Appointments() {
       const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
       for (const row of bookedRows) {
         const email = (row.contact_email ?? "").trim().toLowerCase();
-        const ts = row.appointment_date ? new Date(row.appointment_date).toISOString() : "";
+        const appointmentAt = bookedInAppointmentAt(row);
+        if (!appointmentAt) continue;
+        const date = new Date(appointmentAt);
+        if (isNaN(date.getTime())) continue;
+        const ts = date.toISOString();
         const dedupeKey = `${email}|${ts}`;
         if (bookedSeen.has(dedupeKey)) continue;
         bookedSeen.add(dedupeKey);
         if (email && ts) bookedKeys.add(dedupeKey);
 
         const matched = email ? byEmail.get(email) : undefined;
+        const name = matched?.name ?? bookedInName(row);
         bookedLeads.push({
           id: matched?.id ?? `bookedin:${row.id}`,
           email: matched?.email ?? row.contact_email,
-          name: matched?.name ?? row.contact_name ?? null,
+          name,
           phone: matched?.phone ?? row.contact_phone ?? null,
           address: null,
           event_name: null,
           event_date: null,
           lifecycle_stage: "consultation_booked",
-          appointment_at: row.appointment_date,
+          appointment_at: ts,
           raw_payload:
-            (matched?.raw_payload as Record<string, any>) ??
-            (row.raw_payload as Record<string, any>) ??
-            null,
+            matched
+              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}) } as Record<string, any>)
+              : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, any>),
         });
       }
 
