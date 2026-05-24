@@ -170,12 +170,12 @@ export default function Appointments() {
         if (email && ts) bookedKeys.add(dedupeKey);
 
         const matched = email ? byEmail.get(email) : undefined;
-        const name = matched?.name ?? bookedInName(row);
+        const name = textOrNull(matched?.name) || bookedInName(row);
         bookedLeads.push({
           id: matched?.id ?? `bookedin:${row.id}`,
           email: matched?.email ?? row.contact_email,
           name,
-          phone: matched?.phone ?? row.contact_phone ?? null,
+          phone: textOrNull(matched?.phone) || textOrNull(row.contact_phone) || null,
           address: null,
           event_name: null,
           event_date: null,
@@ -198,8 +198,8 @@ export default function Appointments() {
         const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
         return {
           ...l,
-          name: l.name ?? bookedContact?.name ?? null,
-          phone: l.phone ?? bookedContact?.phone ?? null,
+          name: textOrNull(l.name) || bookedContact?.name || null,
+          phone: textOrNull(l.phone) || bookedContact?.phone || null,
           raw_payload: bookedContact?.raw
             ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, any>)
             : l.raw_payload,
