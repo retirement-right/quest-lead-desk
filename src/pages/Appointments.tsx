@@ -163,16 +163,20 @@ export default function Appointments() {
     })();
   }, []);
 
+  const todayKeyForFilter = phxDayKey(new Date());
   const appts: Appt[] = useMemo(() => {
     const out: Appt[] = [];
     for (const l of leads) {
       if (!l.appointment_at) continue;
       const d = new Date(l.appointment_at);
       if (isNaN(d.getTime())) continue;
-      out.push({ lead: l, date: d, dayKey: phxDayKey(d) });
+      const dayKey = phxDayKey(d);
+      // Exclude past appointments (anything before today in Arizona)
+      if (dayKey < todayKeyForFilter) continue;
+      out.push({ lead: l, date: d, dayKey });
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [leads]);
+  }, [leads, todayKeyForFilter]);
 
   const now = new Date();
   const todayKey = phxDayKey(now);
