@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
   const name = combinedName || [firstName, lastName].filter(Boolean).join(" ").trim();
   const phone = String(payload.contact_phone || payload.phone || "").trim();
   const apptDateRaw = String(
-    payload.appointment_date || payload.date || payload.start_time || payload.scheduled_at || ""
+    payload.appointment_iso || payload.appointment_at || payload.appointment_date || payload.date || payload.start_time || payload.scheduled_at || ""
   ).trim();
   const statusRaw = String(payload.appointment_status || payload.status || payload.event || "").trim();
   const notes = String(payload.notes || payload.note || "").trim() || null;
