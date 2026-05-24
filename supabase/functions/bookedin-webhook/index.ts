@@ -178,26 +178,66 @@ Deno.serve(async (req) => {
   // appointment_at — patch it directly here using the leadjig service role
   // so the Status panel reflects the real booked time.
   let appointmentPatchError: string | null = null;
+  let appointmentPatchSkipped: string | null = null;
   if (!skipForward && apptDateIso && status !== "cancelled") {
     try {
       const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
       const LEADJIG_KEY = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
-      const patchResp = await fetch(
-        `${LEADJIG_URL}/rest/v1/leadjig_leads?email=eq.${encodeURIComponent(email)}`,
-        {
-          method: "PATCH",
-          headers: {
-            apikey: LEADJIG_KEY,
-            Authorization: `Bearer ${LEADJIG_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal",
+      const newTs = new Date(apptDateIso).getTime();
+      const now = Date.now();
+
+      // Only overwrite if the new appointment is in the future.
+      if (newTs <= now) {
+        appointmentPatchSkipped =
+          `new appointment_at ${apptDateIso} is not in the future; not overwriting`;
+      } else {
+        // Fetch existing appointment_at — keep the earliest future appointment.
+        const getResp = await fetch(
+          `${LEADJIG_URL}/rest/v1/leadjig_leads?email=eq.${encodeURIComponent(email)}&select=appointment_at`,
+          {
+            headers: {
+              apikey: LEADJIG_KEY,
+              Authorization: `Bearer ${LEADJIG_KEY}`,
+            },
           },
-          body: JSON.stringify({ appointment_at: apptDateIso }),
-        },
-      );
-      if (!patchResp.ok) {
-        appointmentPatchError = `appointment_at patch ${patchResp.status}: ${await patchResp.text()}`;
-        console.error(appointmentPatchError);
+        );
+        let shouldPatch = true;
+        if (getResp.ok) {
+          const rows = (await getResp.json()) as Array<{ appointment_at: string | null }>;
+          const existing = rows?.[0]?.appointment_at;
+          if (existing) {
+            const existingTs = new Date(existing).getTime();
+            if (!isNaN(existingTs) && existingTs > now && existingTs <= newTs) {
+              shouldPatch = false;
+              appointmentPatchSkipped =
+                `existing future appointment_at ${existing} is earlier than new ${apptDateIso}; keeping existing`;
+            }
+          }
+        } else {
+          appointmentPatchError = `appointment_at lookup ${getResp.status}: ${await getResp.text()}`;
+          console.error(appointmentPatchError);
+          shouldPatch = false;
+        }
+
+        if (shouldPatch) {
+          const patchResp = await fetch(
+            `${LEADJIG_URL}/rest/v1/leadjig_leads?email=eq.${encodeURIComponent(email)}`,
+            {
+              method: "PATCH",
+              headers: {
+                apikey: LEADJIG_KEY,
+                Authorization: `Bearer ${LEADJIG_KEY}`,
+                "Content-Type": "application/json",
+                Prefer: "return=minimal",
+              },
+              body: JSON.stringify({ appointment_at: apptDateIso }),
+            },
+          );
+          if (!patchResp.ok) {
+            appointmentPatchError = `appointment_at patch ${patchResp.status}: ${await patchResp.text()}`;
+            console.error(appointmentPatchError);
+          }
+        }
       }
     } catch (e) {
       appointmentPatchError = e instanceof Error ? e.message : String(e);
@@ -209,7 +249,7 @@ Deno.serve(async (req) => {
     .from("bookedin_appointments")
     .update({
       processed_at: new Date().toISOString(),
-      process_error: processError ?? appointmentPatchError ?? skippedReason,
+      process_error: processError ?? appointmentPatchError ?? appointmentPatchSkipped ?? skippedReason,
     })
     .eq("id", logRow.id);
 
