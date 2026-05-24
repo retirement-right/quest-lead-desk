@@ -58,6 +58,8 @@ export default function Appointments() {
     (async () => {
       setLoading(true);
       const CHUNK = 1000;
+
+      // 1) Pull all leads with a scheduled appointment_at
       let from = 0;
       const all: Lead[] = [];
       while (true) {
@@ -75,7 +77,49 @@ export default function Appointments() {
         if (batch.length < CHUNK) break;
         from += CHUNK;
       }
-      setLeads(all);
+
+      // 2) Pull BookedIn appointments (booked or rescheduled) and
+      //    merge in any whose contact doesn't already appear above
+      //    (matched by email, case-insensitive).
+      const haveEmails = new Set(
+        all.map((l) => (l.email ?? "").trim().toLowerCase()).filter(Boolean),
+      );
+      let bFrom = 0;
+      const bookedPseudo: Lead[] = [];
+      while (true) {
+        const { data, error } = await cloudSupabase
+          .from("bookedin_appointments")
+          .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload")
+          .not("appointment_date", "is", null)
+          .in("appointment_status", ["booked", "rescheduled", "confirmed"])
+          .range(bFrom, bFrom + CHUNK - 1);
+        if (error) {
+          toast.error(error.message);
+          break;
+        }
+        const batch = data ?? [];
+        for (const row of batch) {
+          const email = (row.contact_email ?? "").trim().toLowerCase();
+          if (email && haveEmails.has(email)) continue;
+          if (email) haveEmails.add(email);
+          bookedPseudo.push({
+            id: `bookedin:${row.id}`,
+            email: row.contact_email,
+            name: row.contact_name ?? null,
+            phone: row.contact_phone ?? null,
+            address: null,
+            event_name: null,
+            event_date: null,
+            lifecycle_stage: "consultation_booked",
+            appointment_at: row.appointment_date,
+            raw_payload: (row.raw_payload as Record<string, any>) ?? null,
+          });
+        }
+        if (batch.length < CHUNK) break;
+        bFrom += CHUNK;
+      }
+
+      setLeads([...all, ...bookedPseudo]);
       setLoading(false);
     })();
   }, []);
