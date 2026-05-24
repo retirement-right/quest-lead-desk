@@ -149,8 +149,16 @@ export default function Appointments() {
       const bookedSeen = new Set<string>();
       const bookedLeads: Lead[] = [];
       const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
+      const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, any> | null }>();
       for (const row of bookedRows) {
         const email = (row.contact_email ?? "").trim().toLowerCase();
+        if (email && !bookedContactByEmail.has(email)) {
+          bookedContactByEmail.set(email, {
+            name: bookedInName(row),
+            phone: textOrNull(row.contact_phone) || textOrNull(row.raw_payload?.contact_phone) || textOrNull(row.raw_payload?.phone),
+            raw: (row.raw_payload as Record<string, any>) ?? null,
+          });
+        }
         const appointmentAt = bookedInAppointmentAt(row);
         if (!appointmentAt) continue;
         const date = new Date(appointmentAt);
@@ -185,6 +193,17 @@ export default function Appointments() {
         const email = (l.email ?? "").trim().toLowerCase();
         const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
         return !bookedKeys.has(`${email}|${ts}`);
+      }).map((l) => {
+        const email = (l.email ?? "").trim().toLowerCase();
+        const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
+        return {
+          ...l,
+          name: l.name ?? bookedContact?.name ?? null,
+          phone: l.phone ?? bookedContact?.phone ?? null,
+          raw_payload: bookedContact?.raw
+            ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, any>)
+            : l.raw_payload,
+        };
       });
 
       setLeads([...bookedLeads, ...extraLeadjig]);
