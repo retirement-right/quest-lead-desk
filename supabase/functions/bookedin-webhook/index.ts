@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
     .from("bookedin_appointments")
     .update({
       processed_at: new Date().toISOString(),
-      process_error: processError ?? appointmentPatchError ?? skippedReason,
+      process_error: processError ?? appointmentPatchError ?? appointmentPatchSkipped ?? skippedReason,
     })
     .eq("id", logRow.id);
 
