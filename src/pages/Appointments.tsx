@@ -38,6 +38,30 @@ const fullName = (l: Lead) => {
   return fp || l.name || "—";
 };
 
+const textOrNull = (value: unknown) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || null;
+};
+
+const bookedInAppointmentAt = (row: any) =>
+  textOrNull(row.appointment_date) ||
+  textOrNull(row.raw_payload?.appointment_at) ||
+  textOrNull(row.raw_payload?.appointment_iso) ||
+  textOrNull(row.raw_payload?.appointment_date) ||
+  textOrNull(row.raw_payload?.date) ||
+  textOrNull(row.raw_payload?.start_time) ||
+  textOrNull(row.raw_payload?.scheduled_at);
+
+const bookedInName = (row: any) =>
+  textOrNull(row.contact_name) ||
+  textOrNull(row.raw_payload?.contact_name) ||
+  textOrNull(row.raw_payload?.name) ||
+  [row.raw_payload?.first_name, row.raw_payload?.last_name]
+    .map(textOrNull)
+    .filter(Boolean)
+    .join(" ") ||
+  null;
+
 interface Appt {
   lead: Lead;
   date: Date;
@@ -108,8 +132,8 @@ export default function Appointments() {
         const { data, error } = await cloudSupabase
           .from("bookedin_appointments")
           .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload")
-          .not("appointment_date", "is", null)
           .in("appointment_status", ["booked", "rescheduled", "confirmed"])
+          .order("created_at", { ascending: true })
           .range(bFrom, bFrom + CHUNK - 1);
         if (error) {
           toast.error(error.message);
@@ -125,29 +149,42 @@ export default function Appointments() {
       const bookedSeen = new Set<string>();
       const bookedLeads: Lead[] = [];
       const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
+      const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, any> | null }>();
       for (const row of bookedRows) {
         const email = (row.contact_email ?? "").trim().toLowerCase();
-        const ts = row.appointment_date ? new Date(row.appointment_date).toISOString() : "";
+        if (email && !bookedContactByEmail.has(email)) {
+          bookedContactByEmail.set(email, {
+            name: bookedInName(row),
+            phone: textOrNull(row.contact_phone) || textOrNull(row.raw_payload?.contact_phone) || textOrNull(row.raw_payload?.phone),
+            raw: (row.raw_payload as Record<string, any>) ?? null,
+          });
+        }
+        const appointmentAt = bookedInAppointmentAt(row);
+        if (!appointmentAt) continue;
+        const date = new Date(appointmentAt);
+        if (isNaN(date.getTime())) continue;
+        const ts = date.toISOString();
         const dedupeKey = `${email}|${ts}`;
         if (bookedSeen.has(dedupeKey)) continue;
         bookedSeen.add(dedupeKey);
         if (email && ts) bookedKeys.add(dedupeKey);
 
         const matched = email ? byEmail.get(email) : undefined;
+        const name = textOrNull(matched?.name) || bookedInName(row);
         bookedLeads.push({
           id: matched?.id ?? `bookedin:${row.id}`,
           email: matched?.email ?? row.contact_email,
-          name: matched?.name ?? row.contact_name ?? null,
-          phone: matched?.phone ?? row.contact_phone ?? null,
+          name,
+          phone: textOrNull(matched?.phone) || textOrNull(row.contact_phone) || null,
           address: null,
           event_name: null,
           event_date: null,
           lifecycle_stage: "consultation_booked",
-          appointment_at: row.appointment_date,
+          appointment_at: ts,
           raw_payload:
-            (matched?.raw_payload as Record<string, any>) ??
-            (row.raw_payload as Record<string, any>) ??
-            null,
+            matched
+              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}) } as Record<string, any>)
+              : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, any>),
         });
       }
 
@@ -156,6 +193,17 @@ export default function Appointments() {
         const email = (l.email ?? "").trim().toLowerCase();
         const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
         return !bookedKeys.has(`${email}|${ts}`);
+      }).map((l) => {
+        const email = (l.email ?? "").trim().toLowerCase();
+        const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
+        return {
+          ...l,
+          name: textOrNull(l.name) || bookedContact?.name || null,
+          phone: textOrNull(l.phone) || bookedContact?.phone || null,
+          raw_payload: bookedContact?.raw
+            ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, any>)
+            : l.raw_payload,
+        };
       });
 
       setLeads([...bookedLeads, ...extraLeadjig]);
@@ -294,7 +342,7 @@ export default function Appointments() {
             ) : (
               <div className="space-y-2">
                 {todays.map((a) => (
-                  <ApptRow key={a.lead.id} a={a} />
+                  <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                 ))}
               </div>
             )}
@@ -336,7 +384,7 @@ export default function Appointments() {
                     {list.length > 0 && (
                       <div className="space-y-2 pl-1">
                         {list.map((a) => (
-                          <ApptRow key={a.lead.id} a={a} />
+                          <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                         ))}
                       </div>
                     )}
@@ -396,7 +444,7 @@ export default function Appointments() {
                   ) : (
                     <div className="space-y-2">
                       {selectedDayAppts.map((a) => (
-                        <ApptRow key={a.lead.id} a={a} />
+                        <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} />
                       ))}
                     </div>
                   )
@@ -409,10 +457,10 @@ export default function Appointments() {
                 {!selectedDay && upcoming.length > 0 && (
                   <div className="pt-4 space-y-2">
                     <h4 className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Next up
+                      Upcoming appointments
                     </h4>
-                    {upcoming.slice(0, 5).map((a) => (
-                      <ApptRow key={a.lead.id} a={a} showDate />
+                    {upcoming.map((a) => (
+                      <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} showDate />
                     ))}
                   </div>
                 )}
