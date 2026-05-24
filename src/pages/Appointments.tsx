@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, Lead } from "@/lib/supabase";
+import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +58,8 @@ export default function Appointments() {
     (async () => {
       setLoading(true);
       const CHUNK = 1000;
+
+      // 1) Pull all leads with a scheduled appointment_at
       let from = 0;
       const all: Lead[] = [];
       while (true) {
@@ -74,7 +77,49 @@ export default function Appointments() {
         if (batch.length < CHUNK) break;
         from += CHUNK;
       }
-      setLeads(all);
+
+      // 2) Pull BookedIn appointments (booked or rescheduled) and
+      //    merge in any whose contact doesn't already appear above
+      //    (matched by email, case-insensitive).
+      const haveEmails = new Set(
+        all.map((l) => (l.email ?? "").trim().toLowerCase()).filter(Boolean),
+      );
+      let bFrom = 0;
+      const bookedPseudo: Lead[] = [];
+      while (true) {
+        const { data, error } = await cloudSupabase
+          .from("bookedin_appointments")
+          .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload")
+          .not("appointment_date", "is", null)
+          .in("appointment_status", ["booked", "rescheduled", "confirmed"])
+          .range(bFrom, bFrom + CHUNK - 1);
+        if (error) {
+          toast.error(error.message);
+          break;
+        }
+        const batch = data ?? [];
+        for (const row of batch) {
+          const email = (row.contact_email ?? "").trim().toLowerCase();
+          if (email && haveEmails.has(email)) continue;
+          if (email) haveEmails.add(email);
+          bookedPseudo.push({
+            id: `bookedin:${row.id}`,
+            email: row.contact_email,
+            name: row.contact_name ?? null,
+            phone: row.contact_phone ?? null,
+            address: null,
+            event_name: null,
+            event_date: null,
+            lifecycle_stage: "consultation_booked",
+            appointment_at: row.appointment_date,
+            raw_payload: (row.raw_payload as Record<string, any>) ?? null,
+          });
+        }
+        if (batch.length < CHUNK) break;
+        bFrom += CHUNK;
+      }
+
+      setLeads([...all, ...bookedPseudo]);
       setLoading(false);
     })();
   }, []);
@@ -124,34 +169,50 @@ export default function Appointments() {
     ? upcoming.filter((a) => isSameDay(phxDayDate(a.date), selectedDay))
     : [];
 
-  const ApptRow = ({ a, showDate = false }: { a: Appt; showDate?: boolean }) => (
-    <Link
-      to={`/contacts/${a.lead.id}`}
-      className="block rounded-lg border bg-card p-3 hover:bg-muted/60 transition-colors"
-    >
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <div className="font-medium truncate">{fullName(a.lead)}</div>
-          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-            {a.lead.phone && (
-              <span className="inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {a.lead.phone}
-              </span>
-            )}
-            {a.lead.email && (
-              <span className="inline-flex items-center gap-1 truncate">
-                <Mail className="h-3 w-3" /> {a.lead.email}
-              </span>
-            )}
+  const ApptRow = ({ a, showDate = false }: { a: Appt; showDate?: boolean }) => {
+    const isPseudo = String(a.lead.id).startsWith("bookedin:");
+    const body = (
+      <>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="font-medium truncate">
+              {fullName(a.lead)}
+              {isPseudo && (
+                <Badge variant="outline" className="ml-2 align-middle text-[10px]">
+                  BookedIn · unmatched
+                </Badge>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {a.lead.phone && (
+                <span className="inline-flex items-center gap-1">
+                  <Phone className="h-3 w-3" /> {a.lead.phone}
+                </span>
+              )}
+              {a.lead.email && (
+                <span className="inline-flex items-center gap-1 truncate">
+                  <Mail className="h-3 w-3" /> {a.lead.email}
+                </span>
+              )}
+            </div>
           </div>
+          <Badge className={cn(ORANGE_BTN, "shrink-0")}>
+            <Clock className="h-3 w-3 mr-1" />
+            {showDate ? fmtPhxDateTime(a.date) : fmtPhxTime(a.date)}
+          </Badge>
         </div>
-        <Badge className={cn(ORANGE_BTN, "shrink-0")}>
-          <Clock className="h-3 w-3 mr-1" />
-          {showDate ? fmtPhxDateTime(a.date) : fmtPhxTime(a.date)}
-        </Badge>
-      </div>
-    </Link>
-  );
+      </>
+    );
+    const className =
+      "block rounded-lg border bg-card p-3 hover:bg-muted/60 transition-colors";
+    return isPseudo ? (
+      <div className={className}>{body}</div>
+    ) : (
+      <Link to={`/contacts/${a.lead.id}`} className={className}>
+        {body}
+      </Link>
+    );
+  };
 
   return (
     <div className="space-y-6">
