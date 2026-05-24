@@ -38,6 +38,30 @@ const fullName = (l: Lead) => {
   return fp || l.name || "—";
 };
 
+const textOrNull = (value: unknown) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || null;
+};
+
+const bookedInAppointmentAt = (row: any) =>
+  textOrNull(row.appointment_date) ||
+  textOrNull(row.raw_payload?.appointment_at) ||
+  textOrNull(row.raw_payload?.appointment_iso) ||
+  textOrNull(row.raw_payload?.appointment_date) ||
+  textOrNull(row.raw_payload?.date) ||
+  textOrNull(row.raw_payload?.start_time) ||
+  textOrNull(row.raw_payload?.scheduled_at);
+
+const bookedInName = (row: any) =>
+  textOrNull(row.contact_name) ||
+  textOrNull(row.raw_payload?.contact_name) ||
+  textOrNull(row.raw_payload?.name) ||
+  [row.raw_payload?.first_name, row.raw_payload?.last_name]
+    .map(textOrNull)
+    .filter(Boolean)
+    .join(" ") ||
+  null;
+
 interface Appt {
   lead: Lead;
   date: Date;
