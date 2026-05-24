@@ -59,9 +59,9 @@ export default function Appointments() {
       setLoading(true);
       const CHUNK = 1000;
 
-      // 1) Pull all leads with a scheduled appointment_at
+      // 1) Pull all leadjig leads with a scheduled appointment_at
       let from = 0;
-      const all: Lead[] = [];
+      const leadjigAll: Lead[] = [];
       while (true) {
         const { data, error } = await supabase
           .from("leadjig_leads")
@@ -73,19 +73,37 @@ export default function Appointments() {
           break;
         }
         const batch = (data ?? []) as Lead[];
-        all.push(...batch);
+        leadjigAll.push(...batch);
         if (batch.length < CHUNK) break;
         from += CHUNK;
       }
 
-      // 2) Pull BookedIn appointments (booked or rescheduled) and
-      //    merge in any whose contact doesn't already appear above
-      //    (matched by email, case-insensitive).
-      const haveEmails = new Set(
-        all.map((l) => (l.email ?? "").trim().toLowerCase()).filter(Boolean),
-      );
+      // Also pull a wider set of leadjig leads to use as a directory for
+      // matching bookedin rows by email (even if they have no appointment_at).
+      let dFrom = 0;
+      const leadjigDirectory: Lead[] = [...leadjigAll];
+      while (true) {
+        const { data, error } = await supabase
+          .from("leadjig_leads")
+          .select("id, name, email, phone, raw_payload, appointment_at")
+          .is("appointment_at", null)
+          .not("email", "is", null)
+          .range(dFrom, dFrom + CHUNK - 1);
+        if (error) break;
+        const batch = (data ?? []) as Lead[];
+        leadjigDirectory.push(...batch);
+        if (batch.length < CHUNK) break;
+        dFrom += CHUNK;
+      }
+      const byEmail = new Map<string, Lead>();
+      for (const l of leadjigDirectory) {
+        const e = (l.email ?? "").trim().toLowerCase();
+        if (e && !byEmail.has(e)) byEmail.set(e, l);
+      }
+
+      // 2) Pull BookedIn appointments (active statuses only)
       let bFrom = 0;
-      const bookedPseudo: Lead[] = [];
+      const bookedRows: any[] = [];
       while (true) {
         const { data, error } = await cloudSupabase
           .from("bookedin_appointments")
@@ -98,28 +116,49 @@ export default function Appointments() {
           break;
         }
         const batch = data ?? [];
-        for (const row of batch) {
-          const email = (row.contact_email ?? "").trim().toLowerCase();
-          if (email && haveEmails.has(email)) continue;
-          if (email) haveEmails.add(email);
-          bookedPseudo.push({
-            id: `bookedin:${row.id}`,
-            email: row.contact_email,
-            name: row.contact_name ?? null,
-            phone: row.contact_phone ?? null,
-            address: null,
-            event_name: null,
-            event_date: null,
-            lifecycle_stage: "consultation_booked",
-            appointment_at: row.appointment_date,
-            raw_payload: (row.raw_payload as Record<string, any>) ?? null,
-          });
-        }
+        bookedRows.push(...batch);
         if (batch.length < CHUNK) break;
         bFrom += CHUNK;
       }
 
-      setLeads([...all, ...bookedPseudo]);
+      // Dedupe bookedin rows by (email + timestamp) to avoid duplicate webhooks
+      const bookedSeen = new Set<string>();
+      const bookedLeads: Lead[] = [];
+      const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
+      for (const row of bookedRows) {
+        const email = (row.contact_email ?? "").trim().toLowerCase();
+        const ts = row.appointment_date ? new Date(row.appointment_date).toISOString() : "";
+        const dedupeKey = `${email}|${ts}`;
+        if (bookedSeen.has(dedupeKey)) continue;
+        bookedSeen.add(dedupeKey);
+        if (email && ts) bookedKeys.add(dedupeKey);
+
+        const matched = email ? byEmail.get(email) : undefined;
+        bookedLeads.push({
+          id: matched?.id ?? `bookedin:${row.id}`,
+          email: matched?.email ?? row.contact_email,
+          name: matched?.name ?? row.contact_name ?? null,
+          phone: matched?.phone ?? row.contact_phone ?? null,
+          address: null,
+          event_name: null,
+          event_date: null,
+          lifecycle_stage: "consultation_booked",
+          appointment_at: row.appointment_date,
+          raw_payload:
+            (matched?.raw_payload as Record<string, any>) ??
+            (row.raw_payload as Record<string, any>) ??
+            null,
+        });
+      }
+
+      // 3) Add leadjig appointments not already represented by a bookedin row
+      const extraLeadjig = leadjigAll.filter((l) => {
+        const email = (l.email ?? "").trim().toLowerCase();
+        const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
+        return !bookedKeys.has(`${email}|${ts}`);
+      });
+
+      setLeads([...bookedLeads, ...extraLeadjig]);
       setLoading(false);
     })();
   }, []);
