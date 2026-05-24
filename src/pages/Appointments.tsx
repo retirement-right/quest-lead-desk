@@ -457,9 +457,9 @@ export default function Appointments() {
                 {!selectedDay && upcoming.length > 0 && (
                   <div className="pt-4 space-y-2">
                     <h4 className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Next up
+                      Upcoming appointments
                     </h4>
-                    {upcoming.slice(0, 5).map((a) => (
+                    {upcoming.map((a) => (
                       <ApptRow key={`${a.lead.id}-${a.date.toISOString()}`} a={a} showDate />
                     ))}
                   </div>
