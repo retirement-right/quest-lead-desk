@@ -32,8 +32,18 @@ const fmtPhxDateTime = (d: Date) =>
     minute: "2-digit",
   });
 
+type BookedInAppointmentRow = {
+  id: string;
+  contact_email: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  appointment_date: string | null;
+  appointment_status: string;
+  raw_payload: Record<string, unknown> | null;
+};
+
 const fullName = (l: Lead) => {
-  const rp = (l.raw_payload ?? {}) as Record<string, any>;
+  const rp = (l.raw_payload ?? {}) as Record<string, unknown>;
   const fp = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
   return fp || l.name || "—";
 };
@@ -43,7 +53,7 @@ const textOrNull = (value: unknown) => {
   return text || null;
 };
 
-const bookedInAppointmentAt = (row: any) =>
+const bookedInAppointmentAt = (row: BookedInAppointmentRow) =>
   textOrNull(row.appointment_date) ||
   textOrNull(row.raw_payload?.appointment_at) ||
   textOrNull(row.raw_payload?.appointment_iso) ||
@@ -52,7 +62,7 @@ const bookedInAppointmentAt = (row: any) =>
   textOrNull(row.raw_payload?.start_time) ||
   textOrNull(row.raw_payload?.scheduled_at);
 
-const bookedInName = (row: any) =>
+const bookedInName = (row: BookedInAppointmentRow) =>
   textOrNull(row.contact_name) ||
   textOrNull(row.raw_payload?.contact_name) ||
   textOrNull(row.raw_payload?.name) ||
@@ -61,6 +71,13 @@ const bookedInName = (row: any) =>
     .filter(Boolean)
     .join(" ") ||
   null;
+
+const isBookedInAppointmentsResponse = (
+  value: unknown,
+): value is { appointments: BookedInAppointmentRow[] } =>
+  typeof value === "object" &&
+  value !== null &&
+  Array.isArray((value as { appointments?: unknown }).appointments);
 
 interface Appt {
   lead: Lead;
@@ -125,38 +142,37 @@ export default function Appointments() {
         if (e && !byEmail.has(e)) byEmail.set(e, l);
       }
 
-      // 2) Pull BookedIn appointments (active statuses only)
-      let bFrom = 0;
-      const bookedRows: any[] = [];
-      while (true) {
-        const { data, error } = await cloudSupabase
-          .from("bookedin_appointments")
-          .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload")
-          .in("appointment_status", ["booked", "rescheduled", "confirmed"])
-          .order("created_at", { ascending: true })
-          .range(bFrom, bFrom + CHUNK - 1);
+      // 2) Pull BookedIn appointments (active statuses only) through the
+      // Cloud function. The CRM login is a LeadJig session, so direct browser
+      // reads against the Cloud table run as anon and are blocked by RLS.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const bookedRows: BookedInAppointmentRow[] = [];
+      if (!accessToken) {
+        toast.error("Not signed in");
+      } else {
+        const { data, error } = await cloudSupabase.functions.invoke("list-bookedin-appointments", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (error) {
           toast.error(error.message);
-          break;
+        } else if (isBookedInAppointmentsResponse(data)) {
+          bookedRows.push(...data.appointments);
         }
-        const batch = data ?? [];
-        bookedRows.push(...batch);
-        if (batch.length < CHUNK) break;
-        bFrom += CHUNK;
       }
 
       // Dedupe bookedin rows by (email + timestamp) to avoid duplicate webhooks
       const bookedSeen = new Set<string>();
       const bookedLeads: Lead[] = [];
       const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
-      const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, any> | null }>();
+      const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, unknown> | null }>();
       for (const row of bookedRows) {
         const email = (row.contact_email ?? "").trim().toLowerCase();
         if (email && !bookedContactByEmail.has(email)) {
           bookedContactByEmail.set(email, {
             name: bookedInName(row),
             phone: textOrNull(row.contact_phone) || textOrNull(row.raw_payload?.contact_phone) || textOrNull(row.raw_payload?.phone),
-            raw: (row.raw_payload as Record<string, any>) ?? null,
+            raw: row.raw_payload ?? null,
           });
         }
         const appointmentAt = bookedInAppointmentAt(row);
@@ -183,8 +199,8 @@ export default function Appointments() {
           appointment_at: ts,
           raw_payload:
             matched
-              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}) } as Record<string, any>)
-              : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, any>),
+              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}) } as Record<string, unknown>)
+              : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, unknown>),
         });
       }
 
@@ -201,7 +217,7 @@ export default function Appointments() {
           name: textOrNull(l.name) || bookedContact?.name || null,
           phone: textOrNull(l.phone) || bookedContact?.phone || null,
           raw_payload: bookedContact?.raw
-            ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, any>)
+            ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, unknown>)
             : l.raw_payload,
         };
       });
@@ -397,7 +413,7 @@ export default function Appointments() {
           <TabsContent value="upcoming" className="space-y-4">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-muted-foreground">Show next:</span>
-              <Select value={horizon} onValueChange={(v) => setHorizon(v as any)}>
+              <Select value={horizon} onValueChange={(v) => setHorizon(v as "3" | "6" | "9" | "12")}>
                 <SelectTrigger className="w-36">
                   <SelectValue />
                 </SelectTrigger>
