@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
       const status = (r[iStatus] || "").trim();
       const client = r[iClient] || "";
       if (!email || OWN_EMAILS.has(email)) { skipped++; continue; }
+      if (onlySet && !onlySet.has(email)) { skipped++; continue; }
       if (status !== "Booked") { skipped++; continue; }
       if (/test/i.test(client)) { skipped++; continue; }
 
