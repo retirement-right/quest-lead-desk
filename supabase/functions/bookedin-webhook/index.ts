@@ -10,6 +10,7 @@ const LEADJIG_SHARED_SECRET = Deno.env.get("LEADJIG_SHARED_SECRET")!;
 
 const CLOUD_URL = Deno.env.get("SUPABASE_URL")!;
 const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WEBHOOK_SECRET = Deno.env.get("BOOKEDIN_WEBHOOK_SECRET")!;
 
 type AppointmentStatus = "booked" | "rescheduled" | "cancelled";
 
@@ -39,6 +40,28 @@ function parseFlexibleDate(raw: string): string | null {
   return iso;
 }
 
+function isProcessedOk(processError: string | null): boolean {
+  if (!processError) return true;
+  return processError === "cancelled event with no contact name; not forwarded";
+}
+
+async function findDuplicateLog(
+  cloud: ReturnType<typeof createClient>,
+  email: string,
+  status: AppointmentStatus,
+  apptDateIso: string | null,
+) {
+  let q = cloud
+    .from("bookedin_appointments")
+    .select("id, processed_at, process_error")
+    .eq("contact_email", email)
+    .eq("appointment_status", status);
+  q = apptDateIso ? q.eq("appointment_date", apptDateIso) : q.is("appointment_date", null);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) console.error("dedupe lookup failed", error);
+  return data;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -47,7 +70,17 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Public endpoint — no auth checks (Zapier posts directly)
+  if (!WEBHOOK_SECRET) {
+    return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const providedSecret = req.headers.get("x-webhook-secret") ?? "";
+  if (providedSecret !== WEBHOOK_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   let payload: Record<string, any>;
   try {
@@ -94,25 +127,50 @@ Deno.serve(async (req) => {
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
 
-  // 1) Log raw appointment
-  const { data: logRow, error: logErr } = await cloud
-    .from("bookedin_appointments")
-    .insert({
-      contact_email: email,
-      contact_name: name || null,
-      contact_phone: phone || null,
-      appointment_date: apptDateIso,
-      appointment_status: status,
-      notes,
-      raw_payload: payload,
-    })
-    .select("id").single();
+  const existing = await findDuplicateLog(cloud, email, status, apptDateIso);
+  const alreadyProcessed =
+    !!existing?.processed_at && isProcessedOk(existing.process_error);
 
-  if (logErr) {
-    console.error("log insert failed", logErr);
-    return new Response(JSON.stringify({ error: `log insert: ${logErr.message}` }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (alreadyProcessed) {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        duplicate: true,
+        log_id: existing!.id,
+        skipped: existing!.process_error,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  let logId: string;
+  let duplicate = false;
+
+  if (existing) {
+    duplicate = true;
+    logId = existing.id;
+  } else {
+    const { data: logRow, error: logErr } = await cloud
+      .from("bookedin_appointments")
+      .insert({
+        contact_email: email,
+        contact_name: name || null,
+        contact_phone: phone || null,
+        appointment_date: apptDateIso,
+        appointment_status: status,
+        notes,
+        raw_payload: payload,
+      })
+      .select("id")
+      .single();
+
+    if (logErr) {
+      console.error("log insert failed", logErr);
+      return new Response(JSON.stringify({ error: `log insert: ${logErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    logId = logRow.id;
   }
 
   let processError: string | null = null;
@@ -182,13 +240,14 @@ Deno.serve(async (req) => {
       processed_at: new Date().toISOString(),
       process_error: processError ?? skippedReason,
     })
-    .eq("id", logRow.id);
+    .eq("id", logId);
 
   return new Response(
     JSON.stringify({
       success: !processError,
+      duplicate,
       skipped: skippedReason,
-      log_id: logRow.id,
+      log_id: logId,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
       error: processError,
