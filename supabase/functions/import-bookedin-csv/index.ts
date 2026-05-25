@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
         failed++;
         results.push({ email, error: String(e), payload });
       }
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     return new Response(JSON.stringify({
