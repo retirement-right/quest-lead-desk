@@ -1,1 +1,11 @@
 project_id = "darysnuuhdjkwipbkpxd"
+
+# Custom auth inside handlers (LeadJig JWT / cron secret), not Cloud anon JWT.
+[functions.send-followup-email]
+verify_jwt = false
+
+[functions.send-followup-sms]
+verify_jwt = false
+
+[functions.process-followups]
+verify_jwt = false

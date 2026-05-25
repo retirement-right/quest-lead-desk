@@ -1,14 +1,24 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import {
+  jsonResponse,
+  loadLeadRecipient,
+  requireStaffAuth,
+} from "../_shared/followup-auth.ts";
 
 interface Body {
-  to: string;
-  firstName?: string;
+  leadId?: string;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const auth = await requireStaffAuth(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -19,34 +29,24 @@ Deno.serve(async (req) => {
     if (!TWILIO_PHONE_NUMBER) throw new Error("TWILIO_PHONE_NUMBER not configured");
 
     const body = (await req.json()) as Body;
-    const toRaw = (body.to ?? "").trim();
-    const firstName = (body.firstName ?? "").trim() || "there";
+    const leadId = String(body.leadId ?? "").trim();
+    if (!leadId) {
+      return jsonResponse({ error: "leadId is required" }, 400);
+    }
 
-    // Normalize US phone to E.164 if needed
-    const digits = toRaw.replace(/[^\d+]/g, "");
-    let to = digits;
-    if (!to.startsWith("+")) {
-      const onlyNums = to.replace(/\D/g, "");
-      if (onlyNums.length === 10) to = `+1${onlyNums}`;
-      else if (onlyNums.length === 11 && onlyNums.startsWith("1")) to = `+${onlyNums}`;
-      else to = `+${onlyNums}`;
-    }
-    if (!/^\+\d{10,15}$/.test(to)) {
-      return new Response(JSON.stringify({ error: "Invalid phone number" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const lead = await loadLeadRecipient(leadId, "sms");
+    if (lead instanceof Response) return lead;
+    const { recipient: to, firstName } = lead;
 
     const text = `Hi ${firstName}, this is Michael from Retirement Right. Just checking in — give me a call at 480-726-8805 when you have a moment. Thank you!`;
 
-    const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    const twAuth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
     const twRes = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
       {
         method: "POST",
         headers: {
-          Authorization: `Basic ${auth}`,
+          Authorization: `Basic ${twAuth}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
@@ -62,16 +62,10 @@ Deno.serve(async (req) => {
       throw new Error(`Twilio error [${twRes.status}]: ${JSON.stringify(data)}`);
     }
 
-    return new Response(JSON.stringify({ success: true, sid: data.sid }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return jsonResponse({ success: true, sid: data.sid });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("send-followup-sms error:", msg);
-    return new Response(JSON.stringify({ success: false, error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: false, error: msg }, 500);
   }
 });

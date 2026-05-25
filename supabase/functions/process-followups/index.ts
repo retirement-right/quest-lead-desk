@@ -4,6 +4,7 @@
 // message body, and asks the proxy to mark them sent + update status.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { jsonResponse, normalizePhone, requireCronSecret } from "../_shared/followup-auth.ts";
 
 const PROXY_URL =
   "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-followups-proxy";
@@ -18,17 +19,6 @@ const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL")!;
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER")!;
-
-function normalizePhone(raw: string): string | null {
-  const onlyNums = raw.replace(/\D/g, "");
-  if (raw.trim().startsWith("+")) {
-    const e = "+" + onlyNums;
-    return /^\+\d{10,15}$/.test(e) ? e : null;
-  }
-  if (onlyNums.length === 10) return `+1${onlyNums}`;
-  if (onlyNums.length === 11 && onlyNums.startsWith("1")) return `+${onlyNums}`;
-  return null;
-}
 
 function defaultEmailBody(firstName: string) {
   return `Hi ${firstName || "there"}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
@@ -104,6 +94,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const cronDenied = requireCronSecret(req);
+  if (cronDenied) return cronDenied;
 
   const summary = { scanned: 0, sent: 0, skipped: 0, errors: [] as string[] };
 

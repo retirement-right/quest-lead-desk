@@ -237,15 +237,28 @@ export default function ContactDetail() {
     await loadActivity();
   };
 
+  const staffAuthHeaders = async (): Promise<Record<string, string> | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      toast.error("Not signed in");
+      return null;
+    }
+    return { Authorization: `Bearer ${session.access_token}` };
+  };
+
   const onSendEmail = async () => {
+    if (!id) return;
     if (!email.trim()) {
       toast.error("This contact has no email address");
       return;
     }
     setSendingEmail(true);
     try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
       const { data, error } = await cloudSupabase.functions.invoke("send-followup-email", {
-        body: { to: email.trim(), firstName: firstName.trim() },
+        body: { leadId: id },
+        headers,
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
@@ -260,14 +273,18 @@ export default function ContactDetail() {
   };
 
   const onSendSms = async () => {
+    if (!id) return;
     if (!phone.trim()) {
       toast.error("This contact has no phone number");
       return;
     }
     setSendingSms(true);
     try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
       const { data, error } = await cloudSupabase.functions.invoke("send-followup-sms", {
-        body: { to: phone.trim(), firstName: firstName.trim() },
+        body: { leadId: id },
+        headers,
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
