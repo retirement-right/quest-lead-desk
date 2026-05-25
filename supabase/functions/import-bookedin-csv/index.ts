@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
       const apptDate = parseBookingDate(r[iDate]);
       if (!apptDate) { skipped++; continue; }
-      if (apptDate.getTime() <= now.getTime()) { skipped++; continue; }
+      void now;
 
       const phone = normalizePhone(r[iPhone] || "");
       const payload: Record<string, unknown> = {
