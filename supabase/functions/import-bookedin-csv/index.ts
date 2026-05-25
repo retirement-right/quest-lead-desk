@@ -50,7 +50,9 @@ function normalizePhone(p: string): string | null {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { csv, dryRun = false } = await req.json();
+    const { csv, dryRun = false, onlyEmails } = await req.json();
+    const onlySet: Set<string> | null = Array.isArray(onlyEmails) && onlyEmails.length
+      ? new Set(onlyEmails.map((e: string) => e.toLowerCase())) : null;
     const sharedSecret = Deno.env.get("LEADJIG_SHARED_SECRET");
     if (!sharedSecret) {
       return new Response(JSON.stringify({ error: "LEADJIG_SHARED_SECRET not set" }), {
