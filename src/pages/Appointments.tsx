@@ -79,6 +79,47 @@ const isBookedInAppointmentsResponse = (
   value !== null &&
   Array.isArray((value as { appointments?: unknown }).appointments);
 
+const responseErrorDetails = async (response: Response) => {
+  const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+
+  try {
+    const body = await response.clone().json();
+    if (body && typeof body === "object") {
+      const record = body as Record<string, unknown>;
+      const code = typeof record.code === "string" ? record.code : null;
+      const message =
+        typeof record.message === "string"
+          ? record.message
+          : typeof record.error === "string"
+            ? record.error
+            : null;
+
+      return [status, code, message].filter(Boolean).join(": ");
+    }
+  } catch {
+    // Fall back to plain text below.
+  }
+
+  try {
+    const text = await response.clone().text();
+    return text ? `${status}: ${text}` : status;
+  } catch {
+    return status;
+  }
+};
+
+const bookedInFunctionErrorMessage = async (error: unknown) => {
+  const functionError = error as { message?: string; context?: unknown };
+  const details =
+    functionError.context instanceof Response
+      ? await responseErrorDetails(functionError.context)
+      : functionError.message;
+
+  return details
+    ? `BookedIn appointments failed to load: ${details}`
+    : "BookedIn appointments failed to load.";
+};
+
 interface Appt {
   lead: Lead;
   date: Date;
@@ -94,10 +135,12 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [horizon, setHorizon] = useState<"3" | "6" | "9" | "12">("3");
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
+  const [bookedInError, setBookedInError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
+      setBookedInError(null);
       const CHUNK = 1000;
 
       // 1) Pull all leadjig leads with a scheduled appointment_at
@@ -155,9 +198,17 @@ export default function Appointments() {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (error) {
-          toast.error(error.message);
+          const message = await bookedInFunctionErrorMessage(error);
+          console.error("BookedIn appointments function failed", error);
+          setBookedInError(message);
+          toast.error(message);
         } else if (isBookedInAppointmentsResponse(data)) {
           bookedRows.push(...data.appointments);
+        } else {
+          const message = "BookedIn appointments failed to load: unexpected function response.";
+          console.error("BookedIn appointments function returned an unexpected response", data);
+          setBookedInError(message);
+          toast.error(message);
         }
       }
 
@@ -334,6 +385,12 @@ export default function Appointments() {
           <ArrowLeft className="h-4 w-4" /> Return to CRM
         </Button>
       </div>
+
+      {bookedInError && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {bookedInError}
+        </div>
+      )}
 
       {loading ? (
         <div className="h-40 grid place-items-center">
