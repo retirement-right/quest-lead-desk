@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Bell, LogOut, Users } from "lucide-react";
+import { Bell, Calendar, LogOut, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { supabase, Lead } from "@/lib/supabase";
@@ -106,6 +106,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Link to="/follow-ups">
               <Button variant={loc.pathname.startsWith("/follow-ups") ? "secondary" : "ghost"} size="sm">
                 <Bell className="h-4 w-4" /> Follow-ups
+              </Button>
+            </Link>
+            <Link to="/appointments">
+              <Button variant={loc.pathname.startsWith("/appointments") ? "secondary" : "ghost"} size="sm">
+                <Calendar className="h-4 w-4" /> Appointments
               </Button>
             </Link>
 
