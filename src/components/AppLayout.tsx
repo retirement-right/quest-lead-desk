@@ -2,12 +2,14 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Bell, Calendar, LogOut, Users } from "lucide-react";
+import { AlertTriangle, Bell, Calendar, LogOut, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { supabase, Lead } from "@/lib/supabase";
 import { format, startOfDay, endOfDay, isBefore } from "date-fns";
 import { toast } from "sonner";
+import { useFailedSyncs } from "@/hooks/useFailedSyncs";
+
 
 interface DueItem {
   id: string;
@@ -86,6 +88,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [user]);
 
   const count = items.length;
+  const { failures, count: failedCount } = useFailedSyncs(!!user);
+
+  const fmtFailureApptDate = (iso: string | null) => {
+    if (!iso) return "no appointment date";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "no appointment date";
+    return d.toLocaleString("en-US", {
+      timeZone: "America/Phoenix",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,7 +183,68 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </PopoverContent>
             </Popover>
 
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={failedCount > 0 ? "destructive" : "ghost"}
+                  size="sm"
+                  className="relative"
+                  aria-label="Failed syncs"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  {failedCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-destructive text-destructive-foreground border border-background text-[10px] font-semibold grid place-items-center">
+                      {failedCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-96 p-0">
+                <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Failed BookedIN syncs
+                </div>
+                {failedCount === 0 ? (
+                  <div className="p-4 text-sm text-muted-foreground text-center">
+                    All appointments syncing cleanly
+                  </div>
+                ) : (
+                  <ul className="max-h-96 overflow-auto divide-y">
+                    {failures.slice(0, 10).map((f) => (
+                      <li key={f.id}>
+                        <Link
+                          to="/failed-syncs"
+                          className="block px-3 py-2 hover:bg-muted/60"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium truncate">
+                              {f.contact_name || f.contact_email || "(unknown contact)"}
+                            </span>
+                            <Badge variant="destructive" className="shrink-0">
+                              Failed
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            Appt: {fmtFailureApptDate(f.appointment_date)}
+                          </div>
+                          <div className="text-[11px] text-destructive/80 mt-0.5 truncate font-mono">
+                            {f.process_error}
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="px-3 py-2 border-t">
+                  <Link to="/failed-syncs" className="text-xs text-primary hover:underline">
+                    View all failed syncs →
+                  </Link>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <span className="text-xs text-muted-foreground hidden sm:inline ml-3 mr-2">{user?.email}</span>
+
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4" /> Sign out
             </Button>

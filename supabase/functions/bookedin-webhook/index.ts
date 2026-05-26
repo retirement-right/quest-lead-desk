@@ -242,6 +242,65 @@ Deno.serve(async (req) => {
     })
     .eq("id", logId);
 
+  // Fire admin email alert on real failures (not benign skips).
+  if (processError) {
+    try {
+      const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
+      const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL");
+      const ADMIN_ALERT_EMAIL = "michaeleberhardt01@gmail.com";
+      if (SENDGRID_API_KEY && SENDGRID_FROM_EMAIL) {
+        const apptHuman = apptDateIso
+          ? new Date(apptDateIso).toLocaleString("en-US", {
+              timeZone: "America/Phoenix",
+              dateStyle: "full",
+              timeStyle: "short",
+            }) + " (Arizona)"
+          : "(no appointment date in payload)";
+        const stepFailed = processError.startsWith("proxy ")
+          ? "LeadJig proxy update (leadjig-update-from-bookedin)"
+          : processError.startsWith("log insert")
+          ? "writing audit row to bookedin_appointments"
+          : "BookedIN → CRM sync";
+
+        const lines = [
+          "A BookedIN appointment failed to sync to the CRM.",
+          "",
+          `Contact:        ${name || "(no name)"}`,
+          `Email:          ${email}`,
+          `Phone:          ${phone || "(none)"}`,
+          `Appointment:    ${apptHuman}`,
+          `Status:         ${status}`,
+          `Failed step:    ${stepFailed}`,
+          `Error:          ${processError}`,
+          "",
+          `Log id:         ${logId}`,
+          `Received:       ${new Date().toISOString()}`,
+          "",
+          "Open the Failed Syncs page in the CRM to review and resolve.",
+        ];
+
+        await fetch("https://api.sendgrid.com/v3/mail/send", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${SENDGRID_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: ADMIN_ALERT_EMAIL }] }],
+            from: { email: SENDGRID_FROM_EMAIL, name: "Leadjig CRM Alerts" },
+            subject: "CRM Sync Failed",
+            content: [{ type: "text/plain", value: lines.join("\n") }],
+          }),
+        });
+      } else {
+        console.warn("admin alert skipped: SendGrid env not configured");
+      }
+    } catch (alertErr) {
+      console.error("admin alert email failed", alertErr);
+    }
+  }
+
+
   return new Response(
     JSON.stringify({
       success: !processError,
