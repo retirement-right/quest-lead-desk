@@ -29,6 +29,8 @@ const App = () => (
             <Route path="/follow-ups" element={<RequireAuth><FollowUps /></RequireAuth>} />
             <Route path="/appointments" element={<RequireAuth><Appointments /></RequireAuth>} />
             <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
+            <Route path="/failed-syncs" element={<RequireAuth><FailedSyncs /></RequireAuth>} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
