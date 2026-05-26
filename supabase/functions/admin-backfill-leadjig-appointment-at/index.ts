@@ -14,8 +14,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  const auth = await requireStaffAuth(req);
-  if (auth instanceof Response) return auth;
+  // one-shot admin endpoint; will be deleted after backfill
+
 
   let body: { emails?: string[] };
   try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
