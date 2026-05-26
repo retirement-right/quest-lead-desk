@@ -10,7 +10,9 @@ import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
 import FollowUps from "./pages/FollowUps";
 import Appointments from "./pages/Appointments";
+import FailedSyncs from "./pages/FailedSyncs";
 import NotFound from "./pages/NotFound.tsx";
+
 
 const queryClient = new QueryClient();
 
