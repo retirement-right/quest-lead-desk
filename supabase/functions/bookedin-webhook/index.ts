@@ -24,10 +24,17 @@ function normalizeStatus(s: string): AppointmentStatus | null {
 
 // Parse dates that may arrive as ISO or as human-readable strings like
 // "Tuesday, Apr 21, 2026 at 10:00 AM". Returns ISO string or null.
+// When the input has NO timezone marker (no trailing Z or ±HH:MM), the
+// time is interpreted as Arizona time (UTC-7, no DST observed) — that's
+// how BookedIN emits human-readable times for this account, and parsing
+// them as UTC was the cause of the recurring "3:00 AM" bug.
 function parseFlexibleDate(raw: string): string | null {
   if (!raw) return null;
+  const hasTz = /Z$|[+-]\d{2}:?\d{2}$/.test(raw.trim());
+  const withArizonaTz = (s: string) => (hasTz ? s : `${s} GMT-0700`);
+
   const tryDate = (s: string) => {
-    const d = new Date(s);
+    const d = new Date(withArizonaTz(s));
     return isNaN(d.getTime()) ? null : d.toISOString();
   };
   let iso = tryDate(raw);
@@ -40,9 +47,20 @@ function parseFlexibleDate(raw: string): string | null {
   return iso;
 }
 
+// Proxy errors that are benign for cancellations — when a contact cancels
+// we don't actually need the attendee record updated, so a proxy failure
+// on that specific step shouldn't flag the sync as failed.
+function isBenignCancelledError(status: AppointmentStatus, err: string): boolean {
+  if (status !== "cancelled") return false;
+  return /failed to update attendees/i.test(err) ||
+         /column attendees\.\w+ does not exist/i.test(err);
+}
+
 function isProcessedOk(processError: string | null): boolean {
   if (!processError) return true;
-  return processError === "cancelled event with no contact name; not forwarded";
+  if (processError === "cancelled event with no contact name; not forwarded") return true;
+  if (processError.startsWith("skipped (cancelled, attendee update): ")) return true;
+  return false;
 }
 
 async function findDuplicateLog(
@@ -227,8 +245,18 @@ Deno.serve(async (req) => {
     if (skipForward) {
       // intentional skip — not a real error
     } else {
-      processError = e instanceof Error ? e.message : String(e);
-      console.error("proxy call failed", processError);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (isBenignCancelledError(status, msg)) {
+        // Cancelled contact — the attendee update step failed on the proxy
+        // (e.g. "column attendees.email does not exist"). The cancellation
+        // itself is already recorded; no further action needed for an
+        // attendee that's no longer attending. Mark as benign skip.
+        skippedReason = `skipped (cancelled, attendee update): ${msg}`;
+        console.warn("benign cancelled attendee error:", msg);
+      } else {
+        processError = msg;
+        console.error("proxy call failed", processError);
+      }
     }
   }
 
