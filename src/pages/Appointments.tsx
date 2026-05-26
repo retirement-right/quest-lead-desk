@@ -104,138 +104,179 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [horizon, setHorizon] = useState<"3" | "6" | "9" | "12">("3");
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
+  const [bookedinError, setBookedinError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  // Fetch BookedIN appointments via the Cloud edge function with retry/backoff.
+  const fetchBookedRows = useCallback(
+    async (accessToken: string, maxAttempts = 3): Promise<BookedInAppointmentRow[]> => {
+      let lastErr: string | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const { data, error } = await cloudSupabase.functions.invoke(
+          "list-bookedin-appointments",
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        if (!error && isBookedInAppointmentsResponse(data)) {
+          return data.appointments;
+        }
+        lastErr = error?.message ?? "Unexpected response from BookedIN service";
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+        }
+      }
+      throw new Error(lastErr ?? "BookedIN fetch failed");
+    },
+    [],
+  );
+
+  const loadAppointments = useCallback(async () => {
+    setLoading(true);
+    setBookedinError(null);
+    const CHUNK = 1000;
+
+    // 1) Pull all leadjig leads with a scheduled appointment_at
+    let from = 0;
+    const leadjigAll: Lead[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from("leadjig_leads")
+        .select("id, name, email, phone, raw_payload, appointment_at")
+        .not("appointment_at", "is", null)
+        .range(from, from + CHUNK - 1);
+      if (error) {
+        toast.error(error.message);
+        break;
+      }
+      const batch = (data ?? []) as Lead[];
+      leadjigAll.push(...batch);
+      if (batch.length < CHUNK) break;
+      from += CHUNK;
+    }
+
+    // Also pull a wider set of leadjig leads to use as a directory for
+    // matching bookedin rows by email (even if they have no appointment_at).
+    let dFrom = 0;
+    const leadjigDirectory: Lead[] = [...leadjigAll];
+    while (true) {
+      const { data, error } = await supabase
+        .from("leadjig_leads")
+        .select("id, name, email, phone, raw_payload, appointment_at")
+        .is("appointment_at", null)
+        .not("email", "is", null)
+        .range(dFrom, dFrom + CHUNK - 1);
+      if (error) break;
+      const batch = (data ?? []) as Lead[];
+      leadjigDirectory.push(...batch);
+      if (batch.length < CHUNK) break;
+      dFrom += CHUNK;
+    }
+    const byEmail = new Map<string, Lead>();
+    for (const l of leadjigDirectory) {
+      const e = (l.email ?? "").trim().toLowerCase();
+      if (e && !byEmail.has(e)) byEmail.set(e, l);
+    }
+
+    // 2) Pull BookedIn appointments (active statuses only) through the
+    // Cloud function. The CRM login is a LeadJig session, so direct browser
+    // reads against the Cloud table run as anon and are blocked by RLS.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    let bookedRows: BookedInAppointmentRow[] = [];
+    if (!accessToken) {
+      setBookedinError("You are signed out — sign in to load BookedIN appointments.");
+    } else {
+      try {
+        bookedRows = await fetchBookedRows(accessToken);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("BookedIN fetch failed", msg);
+        setBookedinError(msg);
+      }
+    }
+
+    // Dedupe bookedin rows by (email + timestamp) to avoid duplicate webhooks
+    const bookedSeen = new Set<string>();
+    const bookedLeads: Lead[] = [];
+    const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
+    const bookedEmails = new Set<string>(); // any email that has a bookedin appointment
+    const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, unknown> | null }>();
+    for (const row of bookedRows) {
+      const email = (row.contact_email ?? "").trim().toLowerCase();
+      if (email && !bookedContactByEmail.has(email)) {
+        bookedContactByEmail.set(email, {
+          name: bookedInName(row),
+          phone: textOrNull(row.contact_phone) || textOrNull(row.raw_payload?.contact_phone) || textOrNull(row.raw_payload?.phone),
+          raw: row.raw_payload ?? null,
+        });
+      }
+      const appointmentAt = bookedInAppointmentAt(row);
+      if (!appointmentAt) continue;
+      const date = new Date(appointmentAt);
+      if (isNaN(date.getTime())) continue;
+      const ts = date.toISOString();
+      const dedupeKey = `${email}|${ts}`;
+      if (bookedSeen.has(dedupeKey)) continue;
+      bookedSeen.add(dedupeKey);
+      if (email) {
+        bookedKeys.add(dedupeKey);
+        bookedEmails.add(email);
+      }
+
+      const matched = email ? byEmail.get(email) : undefined;
+      const name = textOrNull(matched?.name) || bookedInName(row);
+      bookedLeads.push({
+        id: matched?.id ?? `bookedin:${row.id}`,
+        email: matched?.email ?? row.contact_email,
+        name,
+        phone: textOrNull(matched?.phone) || textOrNull(row.contact_phone) || null,
+        address: null,
+        event_name: null,
+        event_date: null,
+        lifecycle_stage: "consultation_booked",
+        appointment_at: ts,
+        raw_payload:
+          matched
+            ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}), contact_name: name } as Record<string, unknown>)
+            : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, unknown>),
+      });
+    }
+
+    // 3) Add leadjig appointments not already represented by a bookedin row.
+    //    BookedIN is the source of truth: if an email has ANY bookedin
+    //    appointment, suppress that email's leadjig-only entries so a stale
+    //    leadjig appointment_at can't fight a newer bookedin one.
+    const extraLeadjig = leadjigAll.filter((l) => {
+      const email = (l.email ?? "").trim().toLowerCase();
+      const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
+      if (email && bookedEmails.has(email)) return false;
+      return !bookedKeys.has(`${email}|${ts}`);
+    }).map((l) => {
+      const email = (l.email ?? "").trim().toLowerCase();
+      const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
+      return {
+        ...l,
+        name: textOrNull(l.name) || bookedContact?.name || null,
+        phone: textOrNull(l.phone) || bookedContact?.phone || null,
+        raw_payload: bookedContact?.raw
+          ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, unknown>)
+          : l.raw_payload,
+      };
+    });
+
+    setLeads([...bookedLeads, ...extraLeadjig]);
+    setLoading(false);
+  }, [fetchBookedRows]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const CHUNK = 1000;
+    void loadAppointments();
+  }, [loadAppointments]);
 
-      // 1) Pull all leadjig leads with a scheduled appointment_at
-      let from = 0;
-      const leadjigAll: Lead[] = [];
-      while (true) {
-        const { data, error } = await supabase
-          .from("leadjig_leads")
-          .select("id, name, email, phone, raw_payload, appointment_at")
-          .not("appointment_at", "is", null)
-          .range(from, from + CHUNK - 1);
-        if (error) {
-          toast.error(error.message);
-          break;
-        }
-        const batch = (data ?? []) as Lead[];
-        leadjigAll.push(...batch);
-        if (batch.length < CHUNK) break;
-        from += CHUNK;
-      }
+  const handleRetry = useCallback(async () => {
+    setRetrying(true);
+    await loadAppointments();
+    setRetrying(false);
+  }, [loadAppointments]);
 
-      // Also pull a wider set of leadjig leads to use as a directory for
-      // matching bookedin rows by email (even if they have no appointment_at).
-      let dFrom = 0;
-      const leadjigDirectory: Lead[] = [...leadjigAll];
-      while (true) {
-        const { data, error } = await supabase
-          .from("leadjig_leads")
-          .select("id, name, email, phone, raw_payload, appointment_at")
-          .is("appointment_at", null)
-          .not("email", "is", null)
-          .range(dFrom, dFrom + CHUNK - 1);
-        if (error) break;
-        const batch = (data ?? []) as Lead[];
-        leadjigDirectory.push(...batch);
-        if (batch.length < CHUNK) break;
-        dFrom += CHUNK;
-      }
-      const byEmail = new Map<string, Lead>();
-      for (const l of leadjigDirectory) {
-        const e = (l.email ?? "").trim().toLowerCase();
-        if (e && !byEmail.has(e)) byEmail.set(e, l);
-      }
-
-      // 2) Pull BookedIn appointments (active statuses only) through the
-      // Cloud function. The CRM login is a LeadJig session, so direct browser
-      // reads against the Cloud table run as anon and are blocked by RLS.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      const bookedRows: BookedInAppointmentRow[] = [];
-      if (!accessToken) {
-        toast.error("Not signed in");
-      } else {
-        const { data, error } = await cloudSupabase.functions.invoke("list-bookedin-appointments", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (error) {
-          toast.error(error.message);
-        } else if (isBookedInAppointmentsResponse(data)) {
-          bookedRows.push(...data.appointments);
-        }
-      }
-
-      // Dedupe bookedin rows by (email + timestamp) to avoid duplicate webhooks
-      const bookedSeen = new Set<string>();
-      const bookedLeads: Lead[] = [];
-      const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
-      const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, unknown> | null }>();
-      for (const row of bookedRows) {
-        const email = (row.contact_email ?? "").trim().toLowerCase();
-        if (email && !bookedContactByEmail.has(email)) {
-          bookedContactByEmail.set(email, {
-            name: bookedInName(row),
-            phone: textOrNull(row.contact_phone) || textOrNull(row.raw_payload?.contact_phone) || textOrNull(row.raw_payload?.phone),
-            raw: row.raw_payload ?? null,
-          });
-        }
-        const appointmentAt = bookedInAppointmentAt(row);
-        if (!appointmentAt) continue;
-        const date = new Date(appointmentAt);
-        if (isNaN(date.getTime())) continue;
-        const ts = date.toISOString();
-        const dedupeKey = `${email}|${ts}`;
-        if (bookedSeen.has(dedupeKey)) continue;
-        bookedSeen.add(dedupeKey);
-        if (email && ts) bookedKeys.add(dedupeKey);
-
-        const matched = email ? byEmail.get(email) : undefined;
-        const name = textOrNull(matched?.name) || bookedInName(row);
-        bookedLeads.push({
-          id: matched?.id ?? `bookedin:${row.id}`,
-          email: matched?.email ?? row.contact_email,
-          name,
-          phone: textOrNull(matched?.phone) || textOrNull(row.contact_phone) || null,
-          address: null,
-          event_name: null,
-          event_date: null,
-          lifecycle_stage: "consultation_booked",
-          appointment_at: ts,
-          raw_payload:
-            matched
-              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}), contact_name: name } as Record<string, unknown>)
-              : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, unknown>),
-        });
-      }
-
-      // 3) Add leadjig appointments not already represented by a bookedin row
-      const extraLeadjig = leadjigAll.filter((l) => {
-        const email = (l.email ?? "").trim().toLowerCase();
-        const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
-        return !bookedKeys.has(`${email}|${ts}`);
-      }).map((l) => {
-        const email = (l.email ?? "").trim().toLowerCase();
-        const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
-        return {
-          ...l,
-          name: textOrNull(l.name) || bookedContact?.name || null,
-          phone: textOrNull(l.phone) || bookedContact?.phone || null,
-          raw_payload: bookedContact?.raw
-            ? ({ ...bookedContact.raw, ...(l.raw_payload ?? {}) } as Record<string, unknown>)
-            : l.raw_payload,
-        };
-      });
-
-      setLeads([...bookedLeads, ...extraLeadjig]);
-      setLoading(false);
-    })();
-  }, []);
 
   const todayKeyForFilter = phxDayKey(new Date());
   const appts: Appt[] = useMemo(() => {
