@@ -88,6 +88,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [user]);
 
   const count = items.length;
+  const { failures, count: failedCount } = useFailedSyncs(!!user);
+
+  const fmtFailureApptDate = (iso: string | null) => {
+    if (!iso) return "no appointment date";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "no appointment date";
+    return d.toLocaleString("en-US", {
+      timeZone: "America/Phoenix",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
