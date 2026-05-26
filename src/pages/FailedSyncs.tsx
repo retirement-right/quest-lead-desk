@@ -49,6 +49,7 @@ export default function FailedSyncs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,6 +102,12 @@ export default function FailedSyncs() {
     setResolvingId(null);
   };
 
+  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const visibleRows = showAll
+    ? rows
+    : rows.filter((r) => new Date(r.created_at).getTime() >= cutoffMs);
+  const hiddenCount = rows.length - visibleRows.length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -109,10 +116,21 @@ export default function FailedSyncs() {
           <p className="text-sm text-muted-foreground">
             {loading
               ? "Loading…"
-              : `${rows.length} unresolved failure${rows.length === 1 ? "" : "s"} · Arizona time`}
+              : `${visibleRows.length} unresolved failure${visibleRows.length === 1 ? "" : "s"}${showAll ? "" : " · last 30 days"} · Arizona time`}
+            {!loading && !showAll && hiddenCount > 0 && (
+              <span className="ml-1">({hiddenCount} older hidden)</span>
+            )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={showAll ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowAll((v) => !v)}
+            disabled={loading}
+          >
+            {showAll ? "Show last 30 days" : "Show all history"}
+          </Button>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
