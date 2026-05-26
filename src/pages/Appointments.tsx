@@ -44,8 +44,16 @@ type BookedInAppointmentRow = {
 
 const fullName = (l: Lead) => {
   const rp = (l.raw_payload ?? {}) as Record<string, unknown>;
-  const fp = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
-  return fp || l.name || "—";
+  const fp = [rp.first_name, rp.last_name]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
+  const fromPayload =
+    (typeof rp.contact_name === "string" && rp.contact_name.trim()) ||
+    (typeof rp.name === "string" && rp.name.trim()) ||
+    (typeof rp.client_name === "string" && rp.client_name.trim()) ||
+    "";
+  return fp || (l.name && l.name.trim()) || fromPayload || "—";
 };
 
 const textOrNull = (value: unknown) => {
@@ -199,7 +207,7 @@ export default function Appointments() {
           appointment_at: ts,
           raw_payload:
             matched
-              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}) } as Record<string, unknown>)
+              ? ({ ...(row.raw_payload ?? {}), ...(matched.raw_payload ?? {}), contact_name: name } as Record<string, unknown>)
               : ({ ...(row.raw_payload ?? {}), contact_name: name } as Record<string, unknown>),
         });
       }
