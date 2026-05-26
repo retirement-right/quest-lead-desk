@@ -2,6 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
+// Publishable (anon) key — safe to embed; same value used in the browser client.
+const LEADJIG_ANON_KEY =
+  Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
 
 export function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -10,12 +13,11 @@ export function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-/** Validates LeadJig staff JWT (CRM login). Rejects anon/public calls. */
+/** Validates LeadJig staff JWT (CRM login). Rejects anon/public calls.
+ *  Uses the LeadJig publishable key — not the service role — so this works
+ *  even when LEADJIG_SERVICE_ROLE_KEY is stale. JWT validation only needs
+ *  to call /auth/v1/user, which the anon key permits. */
 export async function requireStaffAuth(req: Request): Promise<{ userId: string } | Response> {
-  const serviceKey = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY");
-  if (!serviceKey) {
-    return jsonResponse({ error: "Server not configured" }, 500);
-  }
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) {
     return jsonResponse({ error: "Unauthorized" }, 401);
@@ -23,8 +25,8 @@ export async function requireStaffAuth(req: Request): Promise<{ userId: string }
   const jwt = auth.slice(7).trim();
   if (!jwt) return jsonResponse({ error: "Unauthorized" }, 401);
 
-  const admin = createClient(LEADJIG_URL, serviceKey);
-  const { data: { user }, error } = await admin.auth.getUser(jwt);
+  const client = createClient(LEADJIG_URL, LEADJIG_ANON_KEY);
+  const { data: { user }, error } = await client.auth.getUser(jwt);
   if (error || !user) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
