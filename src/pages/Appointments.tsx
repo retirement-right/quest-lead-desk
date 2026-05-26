@@ -386,6 +386,32 @@ export default function Appointments() {
         </Button>
       </div>
 
+      {bookedinError && !loading && (
+        <Alert variant="destructive" className="border-status-appointment/40">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>BookedIN connection issue — some appointments may not be displaying</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs opacity-80 break-all">{bookedinError}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRetry}
+              disabled={retrying}
+              className="shrink-0"
+            >
+              {retrying ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3 mr-1" />
+              )}
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+
+
       {loading ? (
         <div className="h-40 grid place-items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
