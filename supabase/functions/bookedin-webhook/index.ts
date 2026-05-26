@@ -245,8 +245,18 @@ Deno.serve(async (req) => {
     if (skipForward) {
       // intentional skip — not a real error
     } else {
-      processError = e instanceof Error ? e.message : String(e);
-      console.error("proxy call failed", processError);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (isBenignCancelledError(status, msg)) {
+        // Cancelled contact — the attendee update step failed on the proxy
+        // (e.g. "column attendees.email does not exist"). The cancellation
+        // itself is already recorded; no further action needed for an
+        // attendee that's no longer attending. Mark as benign skip.
+        skippedReason = `skipped (cancelled, attendee update): ${msg}`;
+        console.warn("benign cancelled attendee error:", msg);
+      } else {
+        processError = msg;
+        console.error("proxy call failed", processError);
+      }
     }
   }
 
