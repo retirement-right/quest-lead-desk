@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, Lead } from "@/lib/supabase";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Mail, Phone, Clock } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Loader2, Mail, Phone, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 import { format, addMonths, isAfter, isBefore, isSameDay } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
 
 const TZ = "America/Phoenix";
 
