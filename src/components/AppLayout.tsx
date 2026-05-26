@@ -2,12 +2,14 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Bell, Calendar, LogOut, Users } from "lucide-react";
+import { AlertTriangle, Bell, Calendar, LogOut, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { supabase, Lead } from "@/lib/supabase";
 import { format, startOfDay, endOfDay, isBefore } from "date-fns";
 import { toast } from "sonner";
+import { useFailedSyncs } from "@/hooks/useFailedSyncs";
+
 
 interface DueItem {
   id: string;
