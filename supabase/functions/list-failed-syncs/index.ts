@@ -11,6 +11,13 @@ const CLOUD_SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BENIGN_SKIPS = new Set<string>([
   "cancelled event with no contact name; not forwarded",
 ]);
+const BENIGN_PREFIXES = ["skipped (cancelled, attendee update): "];
+
+function isBenign(err: string | null): boolean {
+  if (!err) return true;
+  if (BENIGN_SKIPS.has(err)) return true;
+  return BENIGN_PREFIXES.some((p) => err.startsWith(p));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -31,9 +38,7 @@ Deno.serve(async (req) => {
 
   if (error) return jsonResponse({ error: error.message }, 500);
 
-  const failures = (data ?? []).filter(
-    (r) => r.process_error && !BENIGN_SKIPS.has(r.process_error),
-  );
+  const failures = (data ?? []).filter((r) => !isBenign(r.process_error));
 
   return jsonResponse({ failures, count: failures.length });
 });
