@@ -156,17 +156,23 @@ export default function FailedSyncs() {
         <div className="h-40 grid place-items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="rounded-lg border bg-card p-10 text-center">
           <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-          <div className="font-medium">All BookedIN appointments are syncing cleanly.</div>
+          <div className="font-medium">
+            {showAll || rows.length === 0
+              ? "All BookedIN appointments are syncing cleanly."
+              : "No unresolved failures in the last 30 days."}
+          </div>
           <div className="text-sm text-muted-foreground mt-1">
-            Nothing has failed since the last resolution.
+            {!showAll && hiddenCount > 0
+              ? `${hiddenCount} older failure${hiddenCount === 1 ? "" : "s"} hidden — switch to "Show all history" to view.`
+              : "Nothing has failed since the last resolution."}
           </div>
         </div>
       ) : (
         <div className="space-y-3">
-          {rows.map((r) => (
+          {visibleRows.map((r) => (
             <div
               key={r.id}
               className="rounded-lg border bg-card p-4 space-y-3"
