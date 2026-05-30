@@ -423,6 +423,24 @@ export default function ContactDetail() {
                 fromYear={1900}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_spouse">Spouse / partner name</Label>
+              <Input
+                id="cp_spouse"
+                value={cpSpouseName}
+                onChange={(e) => setCpSpouseName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cp_spouse_bd">Spouse birthdate</Label>
+              <DateInput
+                id="cp_spouse_bd"
+                value={cpSpouseBirthdate}
+                onChange={setCpSpouseBirthdate}
+                disableFuture
+                fromYear={1900}
+              />
+            </div>
             <div className="sm:col-span-2 space-y-1.5">
               <Label htmlFor="address">Address</Label>
               <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -605,24 +623,6 @@ export default function ContactDetail() {
                 min={0}
                 value={cpNumChildren}
                 onChange={(e) => setCpNumChildren(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cp_spouse">Spouse / partner name</Label>
-              <Input
-                id="cp_spouse"
-                value={cpSpouseName}
-                onChange={(e) => setCpSpouseName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cp_spouse_bd">Spouse birthdate</Label>
-              <DateInput
-                id="cp_spouse_bd"
-                value={cpSpouseBirthdate}
-                onChange={setCpSpouseBirthdate}
-                disableFuture
-                fromYear={1900}
               />
             </div>
             <div className="space-y-1.5">
