@@ -622,24 +622,6 @@ export default function ContactDetail() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cp_spouse">Spouse / partner name</Label>
-              <Input
-                id="cp_spouse"
-                value={cpSpouseName}
-                onChange={(e) => setCpSpouseName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cp_spouse_bd">Spouse birthdate</Label>
-              <DateInput
-                id="cp_spouse_bd"
-                value={cpSpouseBirthdate}
-                onChange={setCpSpouseBirthdate}
-                disableFuture
-                fromYear={1900}
-              />
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="cp_retire">Retirement date</Label>
               <DateInput
                 id="cp_retire"
