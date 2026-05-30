@@ -441,6 +441,10 @@ export default function ContactDetail() {
                 fromYear={1900}
               />
             </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
             <ReadOnly label="Event name" value={lead.event_name} />
             <div className="space-y-1.5">
               <Label htmlFor="seminar_location">Seminar Location</Label>
