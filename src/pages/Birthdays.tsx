@@ -228,6 +228,7 @@ export default function Birthdays() {
       <Tabs defaultValue="birthdays">
         <TabsList>
           <TabsTrigger value="birthdays">Birthdays</TabsTrigger>
+          <TabsTrigger value="sentToday">Sent Today</TabsTrigger>
           <TabsTrigger value="history">Outreach History</TabsTrigger>
         </TabsList>
 
@@ -313,6 +314,57 @@ export default function Birthdays() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sentToday">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Birthday Outreach — Sent Today</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const sentToday = log.filter(e => {
+                  const sent = new Date(e.sent_at);
+                  return sent >= today && sent < tomorrow;
+                });
+                if (sentToday.length === 0) {
+                  return <div className="py-12 text-center text-muted-foreground text-sm">No birthday outreach sent today.</div>;
+                }
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Who</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Recipient</TableHead>
+                        <TableHead>Sent At</TableHead>
+                        <TableHead>Sent By</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sentToday.map((e) => (
+                        <TableRow key={e.id}>
+                          <TableCell className="font-medium">{e.contact_name || "—"}</TableCell>
+                          <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
+                          <TableCell><Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge></TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{e.recipient || "—"}</TableCell>
+                          <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
+                          <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
