@@ -214,7 +214,10 @@ export default function Birthdays() {
         contactName: r.fullName,
       };
       if (type === "email") payload.email = r.email;
-      else payload.phone = r.phone;
+      else {
+        payload.phone = r.phone;
+        payload.lifecycleStage = r.lifecycleLabel;
+      }
       const { data, error } = await cloudSupabase.functions.invoke(fn, {
         body: payload,
         headers: { Authorization: `Bearer ${token}` },
