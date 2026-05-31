@@ -10,6 +10,30 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+
+const emailBodyFor = (firstName: string) => `Dear ${firstName},
+
+Today is your day, and we didn't want it to pass without reaching out to say — Happy Birthday! 🎉
+
+Here at Retirement Right, we consider it a privilege to be part of your journey toward a secure and fulfilling retirement. On a day like today, we hope you're surrounded by the people and moments that matter most to you.
+
+As you celebrate another year, we also want to remind you that your retirement future deserves the same attention. Whether you're fine-tuning your Social Security strategy, reviewing your income plan, or just want a second set of eyes on where things stand — we're always just a call away.
+
+🎁 As our birthday gift to you: If you'd like a complimentary retirement check-in this month, just reply to this email or call us directly — no agenda, just a friendly conversation.
+
+Enjoy every moment of your special day!
+
+With warm regards,
+The Eberhardt Family
+Retirement Right
+📞 480-726-8805
+🌐 www.retirement-right.com
+📍 Serving Arizona Families`;
+
+const smsBodyFor = (firstName: string) => `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. If you'd like a complimentary retirement check-in this month, just reply or call us! — The Eberhardt Family | www.retirement-right.com`;
+
+const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`;
 
 type Range = "week" | "month" | "byMonth";
 
