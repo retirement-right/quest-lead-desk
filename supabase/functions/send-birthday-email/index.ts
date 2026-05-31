@@ -10,6 +10,11 @@ interface Body {
   email: string;
 }
 
+const FROM_EMAIL = "michael@retirement-right.com";
+const FROM_NAME = "Michael Eberhardt | Retirement Right";
+const REPLY_TO = "michael@retirement-right.com";
+const BCC_EMAIL = "michaeleberhardt01@gmail.com";
+
 const greetingName = (firstName: string) => {
   const f = (firstName ?? "").trim();
   return f.length > 0 ? f : "Valued Friend";
@@ -55,8 +60,7 @@ Deno.serve(async (req) => {
     sentBy = u?.user?.email ?? null;
 
     const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
-    const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL");
-    if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) throw new Error("SendGrid not configured");
+    if (!SENDGRID_API_KEY) throw new Error("SendGrid not configured");
 
     body = (await req.json()) as Body;
     to = normalizeEmail(String(body.email ?? ""));
@@ -73,14 +77,17 @@ Deno.serve(async (req) => {
       });
       return jsonResponse({ success: false, error: "Invalid email" }, 400);
     }
-    const firstName = greetingName(body.firstName);
 
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: SENDGRID_FROM_EMAIL, name: "The Eberhardt Family" },
+        personalizations: [{
+          to: [{ email: to }],
+          bcc: [{ email: BCC_EMAIL }],
+        }],
+        from: { email: FROM_EMAIL, name: FROM_NAME },
+        reply_to: { email: REPLY_TO },
         subject: SUBJECT(body.firstName),
         content: [{ type: "text/plain", value: BODY(body.firstName) }],
       }),
@@ -98,6 +105,7 @@ Deno.serve(async (req) => {
       sent_by: sentBy,
       year_sent: new Date().getFullYear(),
       person_kind: body.personKind,
+      notes: `BCC: ${BCC_EMAIL}`,
     });
 
     return jsonResponse({ success: true });

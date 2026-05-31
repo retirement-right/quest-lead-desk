@@ -11,6 +11,11 @@ interface Body {
   lifecycleStage?: string | null;
 }
 
+const SMS_SIGNATURE = "\n\n— Michael Eberhardt | Retirement Right | www.retirement-right.com";
+const NOTIFY_EMAIL = "michaeleberhardt01@gmail.com";
+const FROM_EMAIL = "michael@retirement-right.com";
+const FROM_NAME = "Michael Eberhardt | Retirement Right";
+
 const isPersonalStage = (stage?: string | null) => {
   const s = (stage ?? "").toLowerCase().trim();
   return s === "hot lead" || s === "hot_lead" || s === "client";
@@ -19,14 +24,50 @@ const isPersonalStage = (stage?: string | null) => {
 const standardSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Happy Birthday ${f}!` : `Hi there! Happy Birthday!`;
-  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime!${SMS_SIGNATURE}`;
 };
 
 const personalSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Hi ${f},` : `Hi there!`;
-  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!${SMS_SIGNATURE}`;
 };
+
+async function sendNotificationEmail(opts: {
+  firstName: string;
+  contactName: string;
+  phone: string;
+  message: string;
+}) {
+  const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
+  if (!SENDGRID_API_KEY) return { ok: false, error: "SendGrid not configured" };
+
+  const now = new Date();
+  const when = now.toLocaleString("en-US", { timeZone: "America/Phoenix", dateStyle: "medium", timeStyle: "short" });
+  const subject = `Birthday SMS Sent — ${opts.contactName}`;
+  const body = `An SMS birthday wish was just sent to ${opts.contactName} at ${opts.phone} on ${when}.
+
+Message sent:
+${opts.message}`;
+
+  try {
+    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: NOTIFY_EMAIL }] }],
+        from: { email: FROM_EMAIL, name: FROM_NAME },
+        reply_to: { email: FROM_EMAIL },
+        subject,
+        content: [{ type: "text/plain", value: body }],
+      }),
+    });
+    if (!res.ok) return { ok: false, error: `SendGrid [${res.status}]: ${await res.text()}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -86,6 +127,24 @@ Deno.serve(async (req) => {
       sent_by: sentBy,
       year_sent: new Date().getFullYear(),
       person_kind: body.personKind,
+    });
+
+    // Fire notification email to Michael's Gmail
+    const notif = await sendNotificationEmail({
+      firstName: body.firstName,
+      contactName: body.contactName,
+      phone: to,
+      message: text,
+    });
+    await admin.from("birthday_outreach_log").insert({
+      contact_id: body.contactId,
+      contact_name: body.contactName,
+      recipient: NOTIFY_EMAIL,
+      outreach_type: notif.ok ? "sms-notification" : "sms-notification-failed",
+      sent_by: sentBy,
+      year_sent: new Date().getFullYear(),
+      person_kind: body.personKind,
+      notes: notif.ok ? `Notification of SMS to ${to}` : (notif.error || "Unknown error").slice(0, 2000),
     });
 
     return jsonResponse({ success: true });
