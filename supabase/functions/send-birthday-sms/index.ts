@@ -8,7 +8,19 @@ interface Body {
   firstName: string;
   contactName: string;
   phone: string;
+  lifecycleStage?: string | null;
 }
+
+const standardSms = (firstName: string) =>
+  `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+
+const personalSms = (firstName: string) =>
+  `Hi ${firstName}, it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+
+const isPersonalStage = (stage?: string | null) => {
+  const s = (stage ?? "").toLowerCase().trim();
+  return s === "hot lead" || s === "hot_lead" || s === "client";
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -28,7 +40,7 @@ Deno.serve(async (req) => {
     if (!to) return jsonResponse({ error: "Invalid phone" }, 400);
     const firstName = (body.firstName || "Friend").trim();
 
-    const text = `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. If you'd like a complimentary retirement check-in this month, just reply or call us! — The Eberhardt Family | www.retirement-right.com`;
+    const text = isPersonalStage(body.lifecycleStage) ? personalSms(firstName) : standardSms(firstName);
 
     const twAuth = btoa(`${SID}:${TOK}`);
     const twRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`, {

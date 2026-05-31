@@ -23,11 +23,7 @@ As you celebrate another year, we also want to remind you that your retirement f
 Enjoy every moment of your special day!
 
 With warm regards,
-The Eberhardt Family
-Retirement Right
-📞 480-726-8805
-🌐 www.retirement-right.com
-📍 Serving Arizona Families`;
+The Eberhardt Family | Retirement Right | www.retirement-right.com | Serving Arizona Families`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
