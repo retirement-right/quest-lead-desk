@@ -8,11 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-const emailBodyFor = (firstName: string) => `Dear ${firstName},
+const greetingName = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  return f.length > 0 ? f : "Valued Friend";
+};
+
+const emailBodyFor = (firstName: string) => `Dear ${greetingName(firstName)},
 
 Today is your day, and we didn't want it to pass without reaching out to say — Happy Birthday! 🎉
 
@@ -27,11 +32,17 @@ Enjoy every moment of your special day!
 With warm regards,
 The Eberhardt Family | Retirement Right | www.retirement-right.com | Serving Arizona Families`;
 
-const smsStandardFor = (firstName: string) =>
-  `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+const smsStandardFor = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  const opener = f.length > 0 ? `Happy Birthday ${f}!` : `Hi there! Happy Birthday!`;
+  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+};
 
-const smsPersonalFor = (firstName: string) =>
-  `Hi ${firstName}, it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+const smsPersonalFor = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  const opener = f.length > 0 ? `Hi ${f},` : `Hi there!`;
+  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+};
 
 const isPersonalStage = (stageLabel?: string | null) => {
   const s = (stageLabel ?? "").toLowerCase().trim();
@@ -41,7 +52,7 @@ const isPersonalStage = (stageLabel?: string | null) => {
 const smsBodyFor = (firstName: string, stageLabel?: string | null) =>
   isPersonalStage(stageLabel) ? smsPersonalFor(firstName) : smsStandardFor(firstName);
 
-const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`;
+const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${greetingName(firstName)}! A Special Note from the Eberhardt Family`;
 
 type Range = "week" | "month" | "byMonth";
 
@@ -65,13 +76,18 @@ interface LogEntry {
   id: string;
   contact_id: string;
   contact_name: string | null;
-  outreach_type: "email" | "sms";
+  outreach_type: "email" | "sms" | "email-failed" | "sms-failed";
   sent_at: string;
   sent_by: string | null;
   year_sent: number;
   person_kind: "primary" | "spouse";
   recipient: string | null;
+  notes: string | null;
 }
+
+const isFailure = (t: LogEntry["outreach_type"]) => t === "email-failed" || t === "sms-failed";
+const channelOf = (t: LogEntry["outreach_type"]): "email" | "sms" =>
+  t === "email" || t === "email-failed" ? "email" : "sms";
 
 const parseDob = (s: any): { y: number | null; m: number; d: number } | null => {
   if (!s) return null;
@@ -201,6 +217,7 @@ export default function Birthdays() {
 
   const send = async (r: BirthdayRow, type: "email" | "sms") => {
     const key = `${r.contactId}-${r.personKind}-${type}`;
+    const friendly = (r.firstName ?? "").trim() || "this contact";
     setSending(key);
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -224,12 +241,17 @@ export default function Birthdays() {
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
-      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${r.firstName}!`, {
+      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${friendly}!`, {
         className: "bg-emerald-600 text-white border-emerald-700",
       });
       await loadLog();
     } catch (e: any) {
-      toast.error(e?.message || "Send failed");
+      // Reload so any failure row written by the edge function shows up immediately.
+      await loadLog();
+      toast.error(`⚠️ Birthday ${type === "email" ? "email" : "SMS"} failed for ${friendly} — check Outreach History`, {
+        description: e?.message,
+        className: "bg-destructive text-destructive-foreground border-destructive",
+      });
     } finally {
       setSending(null);
     }
@@ -368,17 +390,32 @@ export default function Birthdays() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sentToday.map((e) => (
-                        <TableRow key={e.id}>
-                          <TableCell className="font-medium">{e.contact_name || "—"}</TableCell>
-                          <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
-                          <TableCell><Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge></TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{e.recipient || "—"}</TableCell>
-                          <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
-                          <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
-                        </TableRow>
-                      ))}
+                      {sentToday.map((e) => {
+                        const failed = isFailure(e.outreach_type);
+                        return (
+                          <TableRow key={e.id} className={failed ? "bg-destructive/5" : undefined}>
+                            <TableCell className={`font-medium ${failed ? "text-destructive" : ""}`}>{e.contact_name || "—"}</TableCell>
+                            <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
+                            <TableCell>
+                              {failed ? (
+                                <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                                  <XCircle className="h-3 w-3" />
+                                  {channelOf(e.outreach_type).toUpperCase()} FAILED
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className={`text-sm ${failed ? "text-destructive" : "text-muted-foreground"}`}>
+                              {e.recipient || "—"}
+                              {failed && e.notes && <div className="text-xs mt-0.5 line-clamp-2">{e.notes}</div>}
+                            </TableCell>
+                            <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
+                            <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 );
@@ -406,16 +443,29 @@ export default function Birthdays() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {log.map((e) => (
-                      <TableRow key={e.id}>
-                        <TableCell className="font-medium">{e.contact_name || "—"}</TableCell>
-                        <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
-                        <TableCell><Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge></TableCell>
-                        <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
-                        <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
-                      </TableRow>
-                    ))}
+                    {log.map((e) => {
+                      const failed = isFailure(e.outreach_type);
+                      return (
+                        <TableRow key={e.id} className={failed ? "bg-destructive/5" : undefined}>
+                          <TableCell className={`font-medium ${failed ? "text-destructive" : ""}`}>{e.contact_name || "—"}</TableCell>
+                          <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
+                          <TableCell>
+                            {failed ? (
+                              <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                                <XCircle className="h-3 w-3" />
+                                {channelOf(e.outreach_type).toUpperCase()} FAILED
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge>
+                            )}
+                            {failed && e.notes && <div className="text-xs mt-1 text-destructive line-clamp-2 max-w-xs">{e.notes}</div>}
+                          </TableCell>
+                          <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
+                          <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

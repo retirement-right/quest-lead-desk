@@ -10,7 +10,14 @@ interface Body {
   email: string;
 }
 
-const BODY = (firstName: string) => `Dear ${firstName},
+const greetingName = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  return f.length > 0 ? f : "Valued Friend";
+};
+
+const BODY = (firstName: string) => {
+  const greet = greetingName(firstName);
+  return `Dear ${greet},
 
 Today is your day, and we didn't want it to pass without reaching out to say — Happy Birthday! 🎉
 
@@ -24,6 +31,10 @@ Enjoy every moment of your special day!
 
 With warm regards,
 The Eberhardt Family | Retirement Right | www.retirement-right.com | Serving Arizona Families`;
+};
+
+const SUBJECT = (firstName: string) =>
+  `🎂 Happy Birthday, ${greetingName(firstName)}! A Special Note from the Eberhardt Family`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -32,15 +43,37 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  let body: Body | null = null;
+  let sentBy: string | null = null;
+  let to = "";
+
   try {
+    const jwt = req.headers.get("Authorization")!.slice(7).trim();
+    const cli = createClient("https://uoneplysuvmaygbrbswd.supabase.co", Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1");
+    const { data: u } = await cli.auth.getUser(jwt);
+    sentBy = u?.user?.email ?? null;
+
     const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
     const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL");
     if (!SENDGRID_API_KEY || !SENDGRID_FROM_EMAIL) throw new Error("SendGrid not configured");
 
-    const body = (await req.json()) as Body;
-    const to = normalizeEmail(String(body.email ?? ""));
-    if (!to) return jsonResponse({ error: "Invalid email" }, 400);
-    const firstName = (body.firstName || "Friend").trim();
+    body = (await req.json()) as Body;
+    to = normalizeEmail(String(body.email ?? ""));
+    if (!to) {
+      await admin.from("birthday_outreach_log").insert({
+        contact_id: body.contactId,
+        contact_name: body.contactName,
+        recipient: String(body.email ?? ""),
+        outreach_type: "email-failed",
+        sent_by: sentBy,
+        year_sent: new Date().getFullYear(),
+        person_kind: body.personKind,
+        notes: "Invalid email address",
+      });
+      return jsonResponse({ success: false, error: "Invalid email" }, 400);
+    }
+    const firstName = greetingName(body.firstName);
 
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -48,8 +81,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
         from: { email: SENDGRID_FROM_EMAIL, name: "The Eberhardt Family" },
-        subject: `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`,
-        content: [{ type: "text/plain", value: BODY(firstName) }],
+        subject: SUBJECT(body.firstName),
+        content: [{ type: "text/plain", value: BODY(body.firstName) }],
       }),
     });
     if (!sgRes.ok) {
@@ -57,13 +90,6 @@ Deno.serve(async (req) => {
       throw new Error(`SendGrid [${sgRes.status}]: ${t}`);
     }
 
-    // Get sender email for log
-    const jwt = req.headers.get("Authorization")!.slice(7).trim();
-    const cli = createClient("https://uoneplysuvmaygbrbswd.supabase.co", Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1");
-    const { data: u } = await cli.auth.getUser(jwt);
-    const sentBy = u?.user?.email ?? null;
-
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await admin.from("birthday_outreach_log").insert({
       contact_id: body.contactId,
       contact_name: body.contactName,
@@ -78,6 +104,22 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("send-birthday-email:", msg);
+    if (body) {
+      try {
+        await admin.from("birthday_outreach_log").insert({
+          contact_id: body.contactId,
+          contact_name: body.contactName,
+          recipient: to || String(body.email ?? ""),
+          outreach_type: "email-failed",
+          sent_by: sentBy,
+          year_sent: new Date().getFullYear(),
+          person_kind: body.personKind,
+          notes: msg.slice(0, 2000),
+        });
+      } catch (logErr) {
+        console.error("send-birthday-email log failure:", logErr);
+      }
+    }
     return jsonResponse({ success: false, error: msg }, 500);
   }
 });
