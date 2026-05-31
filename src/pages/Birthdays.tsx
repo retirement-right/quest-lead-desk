@@ -125,7 +125,7 @@ export default function Birthdays() {
       while (true) {
         const { data, error } = await supabase
           .from("leadjig_leads")
-          .select("id,name,email,phone,date_of_birth,raw_payload,client_profile")
+          .select("id,name,email,phone,date_of_birth,raw_payload,client_profile,lifecycle_stage")
           .range(from, from + 999);
         if (error) {
           toast.error(error.message);
@@ -143,6 +143,8 @@ export default function Birthdays() {
         const fn = String(rp.first_name || (l.name ? String(l.name).split(" ")[0] : "") || "").trim();
         const ln = String(rp.last_name || (l.name ? String(l.name).split(" ").slice(1).join(" ") : "") || "").trim();
         const fullName = [fn, ln].filter(Boolean).join(" ") || l.name || "—";
+        const lifecycleStage: string | null = l.lifecycle_stage ?? null;
+        const lifecycleLabel = stageToLabel(lifecycleStage);
         const p = parseDob(l.date_of_birth || rp.date_of_birth || rp.birthdate || cp.birthdate);
         if (p) {
           const next = nextBirthdayDate(p.m, p.d);
@@ -152,6 +154,7 @@ export default function Birthdays() {
             email: l.email, phone: l.phone,
             month: p.m, day: p.d, year: p.y,
             nextBirthday: next, ageTurning: ageOn(p.y, next),
+            lifecycleStage, lifecycleLabel,
           });
         }
         const sp = parseDob(cp.spouse_birthdate);
@@ -165,6 +168,7 @@ export default function Birthdays() {
             email: l.email, phone: l.phone,
             month: sp.m, day: sp.d, year: sp.y,
             nextBirthday: next, ageTurning: ageOn(sp.y, next),
+            lifecycleStage, lifecycleLabel,
           });
         }
       }
