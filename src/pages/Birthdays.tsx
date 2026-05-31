@@ -353,6 +353,50 @@ export default function Birthdays() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {confirm?.type === "email" ? <Mail className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+              Send Birthday {confirm?.type === "email" ? "Email" : "SMS"} to {confirm?.row.firstName}?
+            </DialogTitle>
+            <DialogDescription>
+              {confirm?.type === "email"
+                ? <>To: <span className="font-medium text-foreground">{confirm?.row.email}</span></>
+                : <>To: <span className="font-medium text-foreground">{confirm?.row.phone}</span></>}
+            </DialogDescription>
+          </DialogHeader>
+          {confirm && (
+            <div className="overflow-y-auto rounded-md border bg-muted/30 p-4 text-sm">
+              {confirm.type === "email" && (
+                <div className="mb-3 pb-3 border-b">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Subject</div>
+                  <div className="font-medium">{emailSubjectFor(confirm.row.firstName)}</div>
+                </div>
+              )}
+              <pre className="whitespace-pre-wrap font-sans leading-relaxed">
+                {confirm.type === "email" ? emailBodyFor(confirm.row.firstName) : smsBodyFor(confirm.row.firstName)}
+              </pre>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm(null)} disabled={!!sending}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!confirm) return;
+                const { row, type } = confirm;
+                setConfirm(null);
+                await send(row, type);
+              }}
+              disabled={!!sending}
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Confirm Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
