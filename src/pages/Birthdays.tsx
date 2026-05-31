@@ -10,6 +10,30 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+
+const emailBodyFor = (firstName: string) => `Dear ${firstName},
+
+Today is your day, and we didn't want it to pass without reaching out to say — Happy Birthday! 🎉
+
+Here at Retirement Right, we consider it a privilege to be part of your journey toward a secure and fulfilling retirement. On a day like today, we hope you're surrounded by the people and moments that matter most to you.
+
+As you celebrate another year, we also want to remind you that your retirement future deserves the same attention. Whether you're fine-tuning your Social Security strategy, reviewing your income plan, or just want a second set of eyes on where things stand — we're always just a call away.
+
+🎁 As our birthday gift to you: If you'd like a complimentary retirement check-in this month, just reply to this email or call us directly — no agenda, just a friendly conversation.
+
+Enjoy every moment of your special day!
+
+With warm regards,
+The Eberhardt Family
+Retirement Right
+📞 480-726-8805
+🌐 www.retirement-right.com
+📍 Serving Arizona Families`;
+
+const smsBodyFor = (firstName: string) => `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. If you'd like a complimentary retirement check-in this month, just reply or call us! — The Eberhardt Family | www.retirement-right.com`;
+
+const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`;
 
 type Range = "week" | "month" | "byMonth";
 
@@ -71,6 +95,7 @@ export default function Birthdays() {
   const [range, setRange] = useState<Range>("week");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [sending, setSending] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ row: BirthdayRow; type: "email" | "sms" } | null>(null);
   const currentYear = new Date().getFullYear();
 
   const loadLog = async () => {
@@ -181,7 +206,9 @@ export default function Birthdays() {
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
-      toast.success(`${type === "email" ? "Email" : "SMS"} sent to ${r.firstName}`);
+      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${r.firstName}!`, {
+        className: "bg-emerald-600 text-white border-emerald-700",
+      });
       await loadLog();
     } catch (e: any) {
       toast.error(e?.message || "Send failed");
@@ -264,13 +291,13 @@ export default function Birthdays() {
                               {emailSent && <Badge variant="outline" className="gap-1 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"><CheckCircle2 className="h-3 w-3" />Email Sent</Badge>}
                               {smsSent && <Badge variant="outline" className="gap-1 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"><CheckCircle2 className="h-3 w-3" />SMS Sent</Badge>}
                               {r.email && !emailSent && (
-                                <Button size="sm" variant="outline" disabled={sending === `${key}-email`} onClick={() => send(r, "email")}>
+                                <Button size="sm" variant="outline" disabled={sending === `${key}-email`} onClick={() => setConfirm({ row: r, type: "email" })}>
                                   {sending === `${key}-email` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
                                   Email
                                 </Button>
                               )}
                               {r.phone && !smsSent && (
-                                <Button size="sm" variant="outline" disabled={sending === `${key}-sms`} onClick={() => send(r, "sms")}>
+                                <Button size="sm" variant="outline" disabled={sending === `${key}-sms`} onClick={() => setConfirm({ row: r, type: "sms" })}>
                                   {sending === `${key}-sms` ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
                                   SMS
                                 </Button>
@@ -326,6 +353,50 @@ export default function Birthdays() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {confirm?.type === "email" ? <Mail className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+              Send Birthday {confirm?.type === "email" ? "Email" : "SMS"} to {confirm?.row.firstName}?
+            </DialogTitle>
+            <DialogDescription>
+              {confirm?.type === "email"
+                ? <>To: <span className="font-medium text-foreground">{confirm?.row.email}</span></>
+                : <>To: <span className="font-medium text-foreground">{confirm?.row.phone}</span></>}
+            </DialogDescription>
+          </DialogHeader>
+          {confirm && (
+            <div className="overflow-y-auto rounded-md border bg-muted/30 p-4 text-sm">
+              {confirm.type === "email" && (
+                <div className="mb-3 pb-3 border-b">
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Subject</div>
+                  <div className="font-medium">{emailSubjectFor(confirm.row.firstName)}</div>
+                </div>
+              )}
+              <pre className="whitespace-pre-wrap font-sans leading-relaxed">
+                {confirm.type === "email" ? emailBodyFor(confirm.row.firstName) : smsBodyFor(confirm.row.firstName)}
+              </pre>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm(null)} disabled={!!sending}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!confirm) return;
+                const { row, type } = confirm;
+                setConfirm(null);
+                await send(row, type);
+              }}
+              disabled={!!sending}
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Confirm Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
