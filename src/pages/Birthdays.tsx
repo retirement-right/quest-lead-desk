@@ -446,7 +446,7 @@ export default function Birthdays() {
                 </div>
               )}
               <pre className="whitespace-pre-wrap font-sans leading-relaxed">
-                {confirm.type === "email" ? emailBodyFor(confirm.row.firstName) : smsBodyFor(confirm.row.firstName)}
+                {confirm.type === "email" ? emailBodyFor(confirm.row.firstName) : smsBodyFor(confirm.row.firstName, confirm.row.lifecycleLabel)}
               </pre>
             </div>
           )}
