@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      birthday_outreach_log: {
+        Row: {
+          contact_id: string
+          contact_name: string | null
+          id: string
+          outreach_type: string
+          person_kind: string
+          recipient: string | null
+          sent_at: string
+          sent_by: string | null
+          year_sent: number
+        }
+        Insert: {
+          contact_id: string
+          contact_name?: string | null
+          id?: string
+          outreach_type: string
+          person_kind?: string
+          recipient?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          year_sent: number
+        }
+        Update: {
+          contact_id?: string
+          contact_name?: string | null
+          id?: string
+          outreach_type?: string
+          person_kind?: string
+          recipient?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          year_sent?: number
+        }
+        Relationships: []
+      }
       bookedin_appointments: {
         Row: {
           appointment_date: string | null
