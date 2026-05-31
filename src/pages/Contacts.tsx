@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BirthdaysThisWeekCard } from "@/components/BirthdaysThisWeekCard";
 
 const fullName = (l: Lead) => {
   const rp = (l as any).raw_payload;
@@ -384,6 +385,7 @@ export default function Contacts() {
 
   return (
     <div className="space-y-6">
+      <BirthdaysThisWeekCard />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
