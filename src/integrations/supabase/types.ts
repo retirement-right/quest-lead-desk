@@ -19,6 +19,7 @@ export type Database = {
           contact_id: string
           contact_name: string | null
           id: string
+          notes: string | null
           outreach_type: string
           person_kind: string
           recipient: string | null
@@ -30,6 +31,7 @@ export type Database = {
           contact_id: string
           contact_name?: string | null
           id?: string
+          notes?: string | null
           outreach_type: string
           person_kind?: string
           recipient?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           contact_id?: string
           contact_name?: string | null
           id?: string
+          notes?: string | null
           outreach_type?: string
           person_kind?: string
           recipient?: string | null

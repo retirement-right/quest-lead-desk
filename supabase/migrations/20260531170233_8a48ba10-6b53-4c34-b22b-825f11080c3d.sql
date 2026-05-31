@@ -1,0 +1,1 @@
+ALTER TABLE public.birthday_outreach_log ADD COLUMN IF NOT EXISTS notes text;
