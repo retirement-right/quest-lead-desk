@@ -443,16 +443,29 @@ export default function Birthdays() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {log.map((e) => (
-                      <TableRow key={e.id}>
-                        <TableCell className="font-medium">{e.contact_name || "—"}</TableCell>
-                        <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
-                        <TableCell><Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge></TableCell>
-                        <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
-                        <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
-                      </TableRow>
-                    ))}
+                    {log.map((e) => {
+                      const failed = isFailure(e.outreach_type);
+                      return (
+                        <TableRow key={e.id} className={failed ? "bg-destructive/5" : undefined}>
+                          <TableCell className={`font-medium ${failed ? "text-destructive" : ""}`}>{e.contact_name || "—"}</TableCell>
+                          <TableCell><Badge variant={e.person_kind === "primary" ? "default" : "secondary"}>{e.person_kind === "primary" ? "Primary" : "Spouse"}</Badge></TableCell>
+                          <TableCell>
+                            {failed ? (
+                              <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                                <XCircle className="h-3 w-3" />
+                                {channelOf(e.outreach_type).toUpperCase()} FAILED
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">{e.outreach_type.toUpperCase()}</Badge>
+                            )}
+                            {failed && e.notes && <div className="text-xs mt-1 text-destructive line-clamp-2 max-w-xs">{e.notes}</div>}
+                          </TableCell>
+                          <TableCell>{new Date(e.sent_at).toLocaleString()}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{e.sent_by || "—"}</TableCell>
+                          <TableCell><Link to={`/contacts/${e.contact_id}`}><Button size="sm" variant="ghost"><ExternalLink className="h-3 w-3" /></Button></Link></TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
