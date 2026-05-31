@@ -76,13 +76,18 @@ interface LogEntry {
   id: string;
   contact_id: string;
   contact_name: string | null;
-  outreach_type: "email" | "sms";
+  outreach_type: "email" | "sms" | "email-failed" | "sms-failed";
   sent_at: string;
   sent_by: string | null;
   year_sent: number;
   person_kind: "primary" | "spouse";
   recipient: string | null;
+  notes: string | null;
 }
+
+const isFailure = (t: LogEntry["outreach_type"]) => t === "email-failed" || t === "sms-failed";
+const channelOf = (t: LogEntry["outreach_type"]): "email" | "sms" =>
+  t === "email" || t === "email-failed" ? "email" : "sms";
 
 const parseDob = (s: any): { y: number | null; m: number; d: number } | null => {
   if (!s) return null;
