@@ -60,6 +60,7 @@ interface LogEntry {
   sent_by: string | null;
   year_sent: number;
   person_kind: "primary" | "spouse";
+  recipient: string | null;
 }
 
 const parseDob = (s: any): { y: number | null; m: number; d: number } | null => {
