@@ -25,13 +25,21 @@ As you celebrate another year, we also want to remind you that your retirement f
 Enjoy every moment of your special day!
 
 With warm regards,
-The Eberhardt Family
-Retirement Right
-📞 480-726-8805
-🌐 www.retirement-right.com
-📍 Serving Arizona Families`;
+The Eberhardt Family | Retirement Right | www.retirement-right.com | Serving Arizona Families`;
 
-const smsBodyFor = (firstName: string) => `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. If you'd like a complimentary retirement check-in this month, just reply or call us! — The Eberhardt Family | www.retirement-right.com`;
+const smsStandardFor = (firstName: string) =>
+  `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+
+const smsPersonalFor = (firstName: string) =>
+  `Hi ${firstName}, it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+
+const isPersonalStage = (stageLabel?: string | null) => {
+  const s = (stageLabel ?? "").toLowerCase().trim();
+  return s === "hot lead" || s === "client";
+};
+
+const smsBodyFor = (firstName: string, stageLabel?: string | null) =>
+  isPersonalStage(stageLabel) ? smsPersonalFor(firstName) : smsStandardFor(firstName);
 
 const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`;
 
