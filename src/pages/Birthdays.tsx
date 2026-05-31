@@ -297,7 +297,7 @@ export default function Birthdays() {
                                 </Button>
                               )}
                               {r.phone && !smsSent && (
-                                <Button size="sm" variant="outline" disabled={sending === `${key}-sms`} onClick={() => send(r, "sms")}>
+                                <Button size="sm" variant="outline" disabled={sending === `${key}-sms`} onClick={() => setConfirm({ row: r, type: "sms" })}>
                                   {sending === `${key}-sms` ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
                                   SMS
                                 </Button>
