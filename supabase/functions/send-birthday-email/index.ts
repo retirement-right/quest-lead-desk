@@ -128,6 +128,6 @@ Deno.serve(async (req) => {
         console.error("send-birthday-email log failure:", logErr);
       }
     }
-    return jsonResponse({ success: false, error: msg }, 500);
+    return jsonResponse({ success: false, error: msg }, 200);
   }
 });
