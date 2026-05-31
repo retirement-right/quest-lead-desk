@@ -291,7 +291,7 @@ export default function Birthdays() {
                               {emailSent && <Badge variant="outline" className="gap-1 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"><CheckCircle2 className="h-3 w-3" />Email Sent</Badge>}
                               {smsSent && <Badge variant="outline" className="gap-1 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"><CheckCircle2 className="h-3 w-3" />SMS Sent</Badge>}
                               {r.email && !emailSent && (
-                                <Button size="sm" variant="outline" disabled={sending === `${key}-email`} onClick={() => send(r, "email")}>
+                                <Button size="sm" variant="outline" disabled={sending === `${key}-email`} onClick={() => setConfirm({ row: r, type: "email" })}>
                                   {sending === `${key}-email` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
                                   Email
                                 </Button>
