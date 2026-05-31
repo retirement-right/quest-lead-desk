@@ -217,6 +217,7 @@ export default function Birthdays() {
 
   const send = async (r: BirthdayRow, type: "email" | "sms") => {
     const key = `${r.contactId}-${r.personKind}-${type}`;
+    const friendly = (r.firstName ?? "").trim() || "this contact";
     setSending(key);
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -240,12 +241,17 @@ export default function Birthdays() {
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
-      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${r.firstName}!`, {
+      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${friendly}!`, {
         className: "bg-emerald-600 text-white border-emerald-700",
       });
       await loadLog();
     } catch (e: any) {
-      toast.error(e?.message || "Send failed");
+      // Reload so any failure row written by the edge function shows up immediately.
+      await loadLog();
+      toast.error(`⚠️ Birthday ${type === "email" ? "email" : "SMS"} failed for ${friendly} — check Outreach History`, {
+        description: e?.message,
+        className: "bg-destructive text-destructive-foreground border-destructive",
+      });
     } finally {
       setSending(null);
     }
