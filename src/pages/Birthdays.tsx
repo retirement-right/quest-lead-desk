@@ -8,11 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, MessageSquare, Cake, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-const emailBodyFor = (firstName: string) => `Dear ${firstName},
+const greetingName = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  return f.length > 0 ? f : "Valued Friend";
+};
+
+const emailBodyFor = (firstName: string) => `Dear ${greetingName(firstName)},
 
 Today is your day, and we didn't want it to pass without reaching out to say — Happy Birthday! 🎉
 
@@ -27,11 +32,17 @@ Enjoy every moment of your special day!
 With warm regards,
 The Eberhardt Family | Retirement Right | www.retirement-right.com | Serving Arizona Families`;
 
-const smsStandardFor = (firstName: string) =>
-  `Happy Birthday ${firstName}! 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+const smsStandardFor = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  const opener = f.length > 0 ? `Happy Birthday ${f}!` : `Hi there! Happy Birthday!`;
+  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime! — The Eberhardt Family | www.retirement-right.com`;
+};
 
-const smsPersonalFor = (firstName: string) =>
-  `Hi ${firstName}, it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+const smsPersonalFor = (firstName: string) => {
+  const f = (firstName ?? "").trim();
+  const opener = f.length > 0 ? `Hi ${f},` : `Hi there!`;
+  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!`;
+};
 
 const isPersonalStage = (stageLabel?: string | null) => {
   const s = (stageLabel ?? "").toLowerCase().trim();
@@ -41,7 +52,7 @@ const isPersonalStage = (stageLabel?: string | null) => {
 const smsBodyFor = (firstName: string, stageLabel?: string | null) =>
   isPersonalStage(stageLabel) ? smsPersonalFor(firstName) : smsStandardFor(firstName);
 
-const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${firstName}! A Special Note from the Eberhardt Family`;
+const emailSubjectFor = (firstName: string) => `🎂 Happy Birthday, ${greetingName(firstName)}! A Special Note from the Eberhardt Family`;
 
 type Range = "week" | "month" | "byMonth";
 
