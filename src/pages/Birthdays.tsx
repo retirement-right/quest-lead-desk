@@ -57,6 +57,8 @@ interface BirthdayRow {
   year?: number | null;
   nextBirthday: Date;
   ageTurning: number | null;
+  lifecycleStage: string | null;
+  lifecycleLabel: string;
 }
 
 interface LogEntry {
