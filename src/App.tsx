@@ -11,6 +11,7 @@ import ContactDetail from "./pages/ContactDetail";
 import FollowUps from "./pages/FollowUps";
 import Appointments from "./pages/Appointments";
 import FailedSyncs from "./pages/FailedSyncs";
+import Birthdays from "./pages/Birthdays";
 import NotFound from "./pages/NotFound.tsx";
 
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/appointments" element={<RequireAuth><Appointments /></RequireAuth>} />
             <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
             <Route path="/failed-syncs" element={<RequireAuth><FailedSyncs /></RequireAuth>} />
+            <Route path="/birthdays" element={<RequireAuth><Birthdays /></RequireAuth>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
