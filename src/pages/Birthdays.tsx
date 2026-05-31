@@ -206,7 +206,9 @@ export default function Birthdays() {
       });
       if (error) throw error;
       if (data && (data as any).success === false) throw new Error((data as any).error || "Send failed");
-      toast.success(`${type === "email" ? "Email" : "SMS"} sent to ${r.firstName}`);
+      toast.success(`Birthday ${type === "email" ? "email" : "SMS"} sent to ${r.firstName}!`, {
+        className: "bg-emerald-600 text-white border-emerald-700",
+      });
       await loadLog();
     } catch (e: any) {
       toast.error(e?.message || "Send failed");
