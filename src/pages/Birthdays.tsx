@@ -95,6 +95,7 @@ export default function Birthdays() {
   const [range, setRange] = useState<Range>("week");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [sending, setSending] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ row: BirthdayRow; type: "email" | "sms" } | null>(null);
   const currentYear = new Date().getFullYear();
 
   const loadLog = async () => {
