@@ -16,8 +16,6 @@ import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, 
 import { toast } from "sonner";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
-const BUCKET = "lead-documents";
-
 const toLocalInput = (iso: string | null) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -83,13 +81,14 @@ export default function ContactDetail() {
 
   const loadDocs = async () => {
     if (!id) return;
-    const { data, error } = await cloudSupabase
-      .from("lead_documents" as any)
-      .select("*")
-      .eq("lead_id", id)
-      .order("uploaded_at", { ascending: false });
-    if (error) toast.error(error.message);
-    else setDocs((data ?? []) as unknown as LeadDocument[]);
+    const headers = await staffAuthHeaders();
+    if (!headers) return;
+    const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+      headers,
+      body: { leadId: id },
+    });
+    if (error || (data as any)?.error) toast.error(error?.message || (data as any).error);
+    else setDocs(((data as any)?.documents ?? []) as LeadDocument[]);
   };
 
   const loadActivity = async () => {
@@ -301,39 +300,39 @@ export default function ContactDetail() {
   const onUpload = async (file: File) => {
     if (!id) return;
     setUploading(true);
-    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-    const path = `${id}/${Date.now()}-${safeName}`;
-    const { error: upErr } = await cloudSupabase.storage.from(BUCKET).upload(path, file);
-    if (upErr) {
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const form = new FormData();
+      form.append("leadId", id);
+      form.append("file", file, file.name);
+      const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+        body: form,
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      toast.success("File uploaded");
+      await loadDocs();
+    } catch (e: any) {
+      toast.error(e?.message || "Upload failed");
+    } finally {
       setUploading(false);
-      toast.error(upErr.message);
-      return;
     }
-    const { data: { user } } = await cloudSupabase.auth.getUser();
-    const { error: insErr } = await cloudSupabase.from("lead_documents" as any).insert({
-      lead_id: id,
-      file_name: file.name,
-      file_path: path,
-      uploaded_by: user?.id ?? null,
-    });
-    setUploading(false);
-    if (insErr) {
-      toast.error(insErr.message);
-      return;
-    }
-    toast.success("File uploaded");
-    await loadDocs();
   };
 
   const onDownload = async (doc: LeadDocument) => {
-    const { data, error } = await cloudSupabase.storage
-      .from(BUCKET)
-      .createSignedUrl(doc.file_path, 60);
-    if (error || !data) {
-      toast.error(error?.message || "Could not get download URL");
+    const headers = await staffAuthHeaders();
+    if (!headers) return;
+    const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+      body: { action: "signed-url", id: doc.id },
+      headers,
+    });
+    const signedUrl = (data as any)?.signedUrl;
+    if (error || !signedUrl) {
+      toast.error(error?.message || (data as any)?.error || "Could not get download URL");
       return;
     }
-    window.open(data.signedUrl, "_blank", "noopener");
+    window.open(signedUrl, "_blank", "noopener");
   };
 
   if (loading) {
