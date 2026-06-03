@@ -208,7 +208,7 @@ export default function BulkCrmUpload() {
           firstHits = lastHits.filter((l) => l.first && (l.first.startsWith(qF) || qF.startsWith(l.first)));
         }
         if (firstHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob });
+          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob, fields: p.fields });
         } else if (firstHits.length > 1) {
           a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
         } else if (lastHits.length === 1) {
