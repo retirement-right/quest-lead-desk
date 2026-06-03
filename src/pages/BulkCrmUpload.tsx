@@ -479,9 +479,18 @@ export default function BulkCrmUpload() {
   const [migrating, setMigrating] = useState(false);
   const [migrateDryRun, setMigrateDryRun] = useState(true);
   const [migrateResult, setMigrateResult] = useState<any>(null);
+  const [migrateError, setMigrateError] = useState<string | null>(null);
+  const canRunLiveMigration = !!migrateResult && migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0;
   const runMigrateNotes = async () => {
+    if (!migrateDryRun && !canRunLiveMigration) {
+      toast.error("Run a dry run with matching contacts before applying changes.");
+      setMigrateError("Live migration is locked until a dry run finds contacts and reports no failures.");
+      return;
+    }
+    if (!migrateDryRun && !confirm("Apply these note-to-financial-field updates now? This will change contact records.")) return;
     setMigrating(true);
-    setMigrateResult(null);
+    setMigrateError(null);
+    if (migrateDryRun) setMigrateResult(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { toast.error("Not signed in"); return; }
@@ -492,9 +501,12 @@ export default function BulkCrmUpload() {
       if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
       if ((data as any)?.error) throw new Error((data as any).error);
       setMigrateResult(data);
-      toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
+      if (data.matched === 0) toast.info("Dry run finished: no matching questionnaire notes found.");
+      else toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
     } catch (e: any) {
-      toast.error(e?.message || "Migration failed");
+      const message = e?.message || "Migration failed";
+      setMigrateError(message);
+      toast.error(message);
     } finally {
       setMigrating(false);
     }
