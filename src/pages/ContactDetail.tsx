@@ -33,6 +33,63 @@ const ReadOnly = ({ label, value }: { label: string; value?: string | null }) =>
   </div>
 );
 
+type FinProps = {
+  k: string;
+  label: string;
+  financial: Record<string, string>;
+  setFinancial: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+};
+
+const FinField = ({ k, label, financial, setFinancial }: FinProps) => (
+  <div className="space-y-1.5">
+    <Label htmlFor={`fin_${k}`}>{label}</Label>
+    <Input
+      id={`fin_${k}`}
+      value={financial[k] ?? ""}
+      onChange={(e) => setFinancial((p) => ({ ...p, [k]: e.target.value }))}
+    />
+  </div>
+);
+
+type PairRow = { key: string; label: string };
+const PairGrid = ({
+  title,
+  rows,
+  financial,
+  setFinancial,
+}: {
+  title: string;
+  rows: PairRow[];
+  financial: Record<string, string>;
+  setFinancial: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+}) => (
+  <div>
+    <h4 className="text-sm font-semibold mb-3">{title}</h4>
+    <div className="grid gap-3" style={{ gridTemplateColumns: "minmax(180px,1fr) 1fr 1fr" }}>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground" />
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">Primary</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">Spouse</div>
+      {rows.map((r) => (
+        <React.Fragment key={r.key}>
+          <Label className="self-center text-sm">{r.label}</Label>
+          <Input
+            value={financial[`${r.key}_primary`] ?? ""}
+            onChange={(e) =>
+              setFinancial((p) => ({ ...p, [`${r.key}_primary`]: e.target.value }))
+            }
+          />
+          <Input
+            value={financial[`${r.key}_spouse`] ?? ""}
+            onChange={(e) =>
+              setFinancial((p) => ({ ...p, [`${r.key}_spouse`]: e.target.value }))
+            }
+          />
+        </React.Fragment>
+      ))}
+    </div>
+  </div>
+);
+
 export default function ContactDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
