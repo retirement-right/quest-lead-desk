@@ -245,17 +245,18 @@ export default function Contacts() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    // If the search looks like an email/phone (has @ or 3+ digits), search broadly.
+    // Otherwise treat it as a name search and only match the name field.
+    const isContactLookup = needle.includes("@") || (needle.match(/\d/g)?.length ?? 0) >= 3;
     return leads.filter((l) => {
       if (status !== "all" && stageToLabel(effectiveLifecycleStage(l)) !== status) return false;
       if (optOutOnly && !l.do_not_email) return false;
       if (!needle) return true;
-      return [
-        fullName(l),
-        l.email,
-        l.phone,
-        l.event_name,
-        composedAddress(l),
-      ]
+      if (!isContactLookup) {
+        const name = fullName(l).toLowerCase();
+        return name && name !== "—" && name.includes(needle);
+      }
+      return [fullName(l), l.email, l.phone, l.event_name, composedAddress(l)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
