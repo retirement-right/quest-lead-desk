@@ -479,9 +479,18 @@ export default function BulkCrmUpload() {
   const [migrating, setMigrating] = useState(false);
   const [migrateDryRun, setMigrateDryRun] = useState(true);
   const [migrateResult, setMigrateResult] = useState<any>(null);
+  const [migrateError, setMigrateError] = useState<string | null>(null);
+  const canRunLiveMigration = !!migrateResult && migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0;
   const runMigrateNotes = async () => {
+    if (!migrateDryRun && !canRunLiveMigration) {
+      toast.error("Run a dry run with matching contacts before applying changes.");
+      setMigrateError("Live migration is locked until a dry run finds contacts and reports no failures.");
+      return;
+    }
+    if (!migrateDryRun && !confirm("Apply these note-to-financial-field updates now? This will change contact records.")) return;
     setMigrating(true);
-    setMigrateResult(null);
+    setMigrateError(null);
+    if (migrateDryRun) setMigrateResult(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { toast.error("Not signed in"); return; }
@@ -492,9 +501,12 @@ export default function BulkCrmUpload() {
       if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
       if ((data as any)?.error) throw new Error((data as any).error);
       setMigrateResult(data);
-      toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
+      if (data.matched === 0) toast.info("Dry run finished: no matching questionnaire notes found.");
+      else toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
     } catch (e: any) {
-      toast.error(e?.message || "Migration failed");
+      const message = e?.message || "Migration failed";
+      setMigrateError(message);
+      toast.error(message);
     } finally {
       setMigrating(false);
     }
@@ -522,16 +534,36 @@ export default function BulkCrmUpload() {
               <input type="checkbox" checked={migrateDryRun} onChange={(e) => setMigrateDryRun(e.target.checked)} />
               Dry run (preview only)
             </label>
-            <Button onClick={runMigrateNotes} disabled={migrating}>
+            <Button onClick={runMigrateNotes} disabled={migrating || (!migrateDryRun && !canRunLiveMigration)}>
               {migrating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {migrateDryRun ? "Preview migration" : "Run migration"}
             </Button>
           </div>
+          {!migrateDryRun && !canRunLiveMigration && (
+            <p className="text-xs text-muted-foreground">
+              Live migration is disabled until a dry run finds matching contacts and has no failures.
+            </p>
+          )}
+          {migrateError && (
+            <div className="text-xs rounded border border-destructive/30 bg-destructive/10 text-destructive p-3">
+              {migrateError}
+            </div>
+          )}
           {migrateResult && (
             <div className="text-xs bg-muted rounded p-3 max-h-72 overflow-auto">
               <div className="font-medium mb-1">
-                scanned {migrateResult.scanned} · matched {migrateResult.matched} · updated {migrateResult.updated} · failed {migrateResult.failed}
+                {migrateResult.dry_run ? "Dry run complete" : "Migration complete"}: scanned {migrateResult.scanned} · matched {migrateResult.matched} · {migrateResult.dry_run ? "would update" : "updated"} {migrateResult.updated} · failed {migrateResult.failed}
               </div>
+              {migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0 && (
+                <div className="mb-2 text-muted-foreground">
+                  Preview found contacts to update. You can now uncheck Dry run and run the migration.
+                </div>
+              )}
+              {migrateResult.dry_run && migrateResult.matched === 0 && (
+                <div className="mb-2 text-muted-foreground">
+                  Nothing would be changed. Leave Dry run checked and do not run the live migration yet.
+                </div>
+              )}
               <ul className="space-y-1">
                 {(migrateResult.results ?? []).map((r: any, i: number) => (
                   <li key={i}>
