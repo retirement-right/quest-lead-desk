@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Download, FileScan, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
@@ -37,6 +37,7 @@ export default function ContactDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [docs, setDocs] = useState<LeadDocument[]>([]);
@@ -44,6 +45,7 @@ export default function ContactDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // editable fields
   const [status, setStatus] = useState<string>("");
@@ -319,6 +321,80 @@ export default function ContactDetail() {
       setUploading(false);
     }
   };
+
+  const parseIsoDate = (v: unknown): Date | undefined => {
+    if (!v || typeof v !== "string") return undefined;
+    const d = parseISO(v);
+    return isNaN(d.getTime()) ? undefined : d;
+  };
+
+  const onImportQuestionnaire = async (file: File) => {
+    if (!id) return;
+    setImporting(true);
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const { data, error } = await cloudSupabase.functions.invoke("extract-questionnaire", {
+        body: form,
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      const f = ((data as any)?.fields ?? {}) as Record<string, any>;
+
+      let filled = 0;
+      const fill = (cur: string, val: unknown, set: (v: string) => void) => {
+        if (cur.trim()) return;
+        const s = val == null ? "" : String(val).trim();
+        if (!s) return;
+        set(s);
+        filled++;
+      };
+      const fillDate = (cur: Date | undefined, val: unknown, set: (d: Date | undefined) => void) => {
+        if (cur) return;
+        const d = parseIsoDate(val);
+        if (!d) return;
+        set(d);
+        filled++;
+      };
+
+      fill(firstName, f.first_name, setFirstName);
+      fill(lastName, f.last_name, setLastName);
+      fill(email, f.email, setEmail);
+      fill(phone, f.phone, setPhone);
+      fill(address, f.address, setAddress);
+      fillDate(birthdate, f.date_of_birth, setBirthdate);
+      fill(cpSpouseName, f.spouse_name, setCpSpouseName);
+      fillDate(cpSpouseBirthdate, f.spouse_birthdate, setCpSpouseBirthdate);
+      fillDate(cpRetirementDate, f.retirement_date, setCpRetirementDate);
+      if (!cpNumChildren && f.num_children != null) {
+        setCpNumChildren(String(f.num_children));
+        filled++;
+      }
+      fill(cpNetWorth, f.net_worth, setCpNetWorth);
+      fill(cpPrimaryConcern, f.primary_concern, setCpPrimaryConcern);
+      fill(cpSeminarLocation, f.seminar_location, setCpSeminarLocation);
+      if (f.additional_notes) {
+        const extra = String(f.additional_notes).trim();
+        if (extra) {
+          setCpAdditionalNotes((prev) => (prev.trim() ? `${prev}\n\n${extra}` : extra));
+          filled++;
+        }
+      }
+
+      // Also save the original file to documents
+      await onUpload(file);
+
+      toast.success(`Imported ${filled} field${filled === 1 ? "" : "s"} from questionnaire. Review and Save.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not read questionnaire");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+
 
   const onDownload = async (doc: LeadDocument) => {
     const headers = await staffAuthHeaders();
@@ -682,17 +758,29 @@ export default function ContactDetail() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base">Documents</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => fileInput.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => importInput.current?.click()}
+                disabled={importing || uploading}
+                title="Read a questionnaire (PDF or photo) and auto-fill empty fields"
+              >
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                Import questionnaire
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Upload
+              </Button>
+            </div>
             <input
               ref={fileInput}
               type="file"
@@ -700,6 +788,17 @@ export default function ContactDetail() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onUpload(f);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={importInput}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onImportQuestionnaire(f);
                 e.target.value = "";
               }}
             />
