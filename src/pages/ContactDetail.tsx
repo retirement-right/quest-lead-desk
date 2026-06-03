@@ -794,7 +794,19 @@ export default function ContactDetail() {
               </Select>
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="cp_notes">Additional notes</Label>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Label htmlFor="cp_notes">Additional notes</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={onParseNotesIntoFields}
+                  disabled={parsingNotes}
+                >
+                  {parsingNotes ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                  Pull values from notes into fields below
+                </Button>
+              </div>
               <Textarea
                 id="cp_notes"
                 rows={5}
@@ -805,6 +817,58 @@ export default function ContactDetail() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Financial & Family Profile</CardTitle></CardHeader>
+          <CardContent className="space-y-6">
+            <PairGrid
+              title="Employment & Retirement"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[
+                { key: "employment", label: "Employment (Working/Retired)" },
+                { key: "working_income", label: "Working income ($/yr)" },
+                { key: "pension_income", label: "Pension income ($/yr)" },
+                { key: "social_security", label: "Social Security ($/mo)" },
+                { key: "desired_retirement_age", label: "Desired retirement age" },
+              ]}
+            />
+            <PairGrid
+              title="Assets"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[
+                { key: "ira", label: "IRA ($)" },
+                { key: "ira_roth", label: "IRA Roth ($)" },
+                { key: "k401", label: "401(k) ($)" },
+                { key: "savings", label: "Savings / cash ($)" },
+                { key: "investments", label: "Investments ($)" },
+              ]}
+            />
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Real Estate</h4>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <FinField k="real_estate_value" label="Value ($)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="mortgage_balance" label="Mortgage balance ($)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="mortgage_payment" label="Mortgage payment ($/mo)" financial={financial} setFinancial={setFinancial} />
+              </div>
+            </div>
+            <PairGrid
+              title="Health"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[{ key: "health", label: "Health (Good/Fair/Poor)" }]}
+            />
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Parents</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FinField k="parents_primary" label="Primary's parents (e.g. Mother 85 D, Father 85 D)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="parents_spouse" label="Spouse's parents" financial={financial} setFinancial={setFinancial} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
 
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
