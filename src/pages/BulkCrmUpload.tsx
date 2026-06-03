@@ -136,6 +136,87 @@ async function extractFieldsFromXlsx(blob: Blob, fallback: { first: string; last
   }
 }
 
+function toIsoDate(s?: string | null): string | null {
+  if (!s) return null;
+  const str = String(s).trim();
+  if (!str) return null;
+  // YYYY-MM-DD already
+  const iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  // M/D/YYYY or M-D-YYYY
+  const us = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (us) {
+    let [, mo, d, y] = us;
+    if (y.length === 2) y = (Number(y) > 30 ? "19" : "20") + y;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  const t = Date.parse(str);
+  if (!isNaN(t)) {
+    const dt = new Date(t);
+    const y = dt.getUTCFullYear();
+    const mo = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(dt.getUTCDate()).padStart(2, "0");
+    return `${y}-${mo}-${d}`;
+  }
+  return null;
+}
+
+function toNumber(s?: string | null): number | null {
+  if (!s) return null;
+  const n = Number(String(s).replace(/[^0-9.\-]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+const isBlank = (v: any) =>
+  v == null || v === "" || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
+
+function buildClientProfilePatch(f: ExtractedFields, existing: Record<string, any>) {
+  const patch: Record<string, any> = { ...existing };
+  let changed = false;
+  const set = (k: string, v: any) => {
+    if (v == null || v === "") return;
+    if (isBlank(existing[k])) { patch[k] = v; changed = true; }
+  };
+  set("spouse_name", f.spouseName ?? null);
+  set("spouse_birthdate", toIsoDate(f.spouseDob));
+  set("retirement_date", toIsoDate(f.retirementDate));
+  set("net_worth", f.netWorth ?? null);
+  set("primary_concern", f.primaryConcern ?? null);
+  set("additional_notes", f.additionalNotes ?? null);
+  set("num_children", toNumber(f.numChildren));
+  set("occupation", f.occupation ?? null);
+  set("employer", f.employer ?? null);
+  set("seminar_location", f.seminarLocation ?? null);
+  return { patch, changed };
+}
+
+function buildLeadPatch(f: ExtractedFields, lead: Record<string, any>) {
+  const patch: Record<string, any> = {};
+  if (isBlank(lead.email) && f.email) patch.email = f.email;
+  if (isBlank(lead.phone) && f.phone) patch.phone = f.phone;
+  if (isBlank(lead.address)) {
+    const addr = [f.address, f.cityStateZip].filter(Boolean).join(", ");
+    if (addr) patch.address = addr;
+  }
+  if (isBlank(lead.date_of_birth) && f.dob) {
+    const d = toIsoDate(f.dob);
+    if (d) patch.date_of_birth = d;
+  }
+  const rp = (lead.raw_payload ?? {}) as Record<string, any>;
+  const mergedRaw = { ...rp };
+  let rpChanged = false;
+  if (isBlank(rp.first_name) && f.firstName) { mergedRaw.first_name = f.firstName; rpChanged = true; }
+  if (isBlank(rp.last_name) && f.lastName) { mergedRaw.last_name = f.lastName; rpChanged = true; }
+  if (isBlank(rp.crm_extracted) && f.allKv && Object.keys(f.allKv).length) {
+    mergedRaw.crm_extracted = f.allKv; rpChanged = true;
+  }
+  if (rpChanged) patch.raw_payload = mergedRaw;
+  const cp = (lead.client_profile ?? {}) as Record<string, any>;
+  const { patch: cpPatch, changed: cpChanged } = buildClientProfilePatch(f, cp);
+  if (cpChanged) patch.client_profile = cpPatch;
+  return patch;
+}
+
 export default function BulkCrmUpload() {
   const [matched, setMatched] = useState<Matched[]>([]);
   const [ambiguous, setAmbiguous] = useState<Ambiguous[]>([]);
