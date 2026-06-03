@@ -4,6 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Bell, Cake, Calendar, ChevronDown, LogOut, Upload, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { supabase, Lead } from "@/lib/supabase";
 import { format, startOfDay, endOfDay, isBefore } from "date-fns";
