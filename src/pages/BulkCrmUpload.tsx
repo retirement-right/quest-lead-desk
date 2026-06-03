@@ -109,9 +109,14 @@ export default function BulkCrmUpload() {
       toast.success(`Extracted ${files.length} CRM files`);
 
       toast.info("Loading contacts…");
-      const allLeads = await fetchAllLeads();
-      setLeads(allLeads);
-      toast.success(`Loaded ${allLeads.length} contacts`);
+      let allLeads: Lead[] = [];
+      try {
+        allLeads = await fetchAllLeads();
+        setLeads(allLeads);
+        toast.success(`Loaded ${allLeads.length} contacts`);
+      } catch (err: any) {
+        toast.error(`Could not load contacts: ${err?.message ?? err}`);
+      }
 
       // Match
       const m: Matched[] = [];
@@ -129,7 +134,9 @@ export default function BulkCrmUpload() {
           m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob });
         } else if (firstHits.length > 1) {
           a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
-        } else if (lastHits.length > 0) {
+        } else if (lastHits.length === 1) {
+          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob });
+        } else if (lastHits.length > 1) {
           a.push({ filename: p.filename, candidates: lastHits.map((l) => ({ id: l.id, name: l.full, email: l.email })), note: "last-name only" });
         } else {
           u.push({ filename: p.filename, last: p.last, first: p.first });
@@ -227,6 +234,18 @@ export default function BulkCrmUpload() {
           )}
         </CardContent>
       </Card>
+
+      {reportReady && (
+        <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b flex items-center justify-between gap-3">
+          <div className="text-sm">
+            <span className="font-medium text-green-600">{matched.length} matched</span>
+            <span className="text-muted-foreground"> · {ambiguous.length} ambiguous · {unmatched.length} unmatched</span>
+          </div>
+          <Button onClick={confirmUpload} disabled={!matched.length || uploading} size="lg">
+            {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading {progress.done}/{progress.total}…</> : `Confirm & upload ${matched.length} matched files`}
+          </Button>
+        </div>
+      )}
 
       {reportReady && (
         <>
