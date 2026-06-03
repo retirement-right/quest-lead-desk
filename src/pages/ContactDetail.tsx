@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
+import { ArrowLeft, CalendarIcon, Download, FileScan, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
