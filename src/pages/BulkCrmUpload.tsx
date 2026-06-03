@@ -9,8 +9,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-const BUCKET = "lead-documents";
-
 type ExtractedFields = {
   primaryName?: string | null;
   spouseName?: string | null;
@@ -220,27 +218,22 @@ export default function BulkCrmUpload() {
     userId: string | null,
     idx: number
   ) => {
-    const safeName = filename.replace(/[^\w.\-]+/g, "_");
-    const path = `${leadId}/${Date.now()}-${idx}-${safeName}`;
-    const { error: upErr } = await cloudSupabase.storage.from(BUCKET).upload(path, blob, {
-      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    const form = new FormData();
+    form.append("leadId", leadId);
+    form.append("file", blob, filename);
+    const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+      body: form,
+      headers: { Authorization: `Bearer ${userId}` },
     });
-    if (upErr) throw upErr;
-    const { error: insErr } = await cloudSupabase.from("lead_documents" as any).insert({
-      lead_id: leadId,
-      file_name: filename,
-      file_path: path,
-      uploaded_by: userId,
-    });
-    if (insErr) throw insErr;
+    if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
   };
 
   const confirmUpload = async () => {
     const willCreate = createMissing ? unmatched.length : 0;
     const total = matched.length + willCreate;
     if (!total) return;
-    const { data: { session } } = await cloudSupabase.auth.getSession();
-    if (!session?.user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
       toast.error("You're not signed in to the CRM. Please log in and try again.");
       return;
     }
@@ -249,7 +242,7 @@ export default function BulkCrmUpload() {
       : `Upload ${matched.length} files to their matched contacts?`;
     if (!confirm(msg)) return;
     setUploading(true);
-    const user = session.user;
+    const token = session.access_token;
     const failures: { filename: string; error: string }[] = [];
     let created = 0;
     setProgress({ done: 0, total, failures: [], created: 0 });
@@ -257,7 +250,7 @@ export default function BulkCrmUpload() {
     let i = 0;
     for (const m of matched) {
       try {
-        await uploadToLead(m.lead_id, m.filename, m.blob, user.id, i);
+        await uploadToLead(m.lead_id, m.filename, m.blob, token, i);
       } catch (e: any) {
         failures.push({ filename: m.filename, error: e?.message || String(e) });
       }
@@ -296,7 +289,7 @@ export default function BulkCrmUpload() {
             .single();
           if (insErr || !newLead) throw insErr || new Error("Insert returned no row");
           created++;
-          await uploadToLead((newLead as any).id, u.filename, u.blob, user.id, i);
+          await uploadToLead((newLead as any).id, u.filename, u.blob, token, i);
         } catch (e: any) {
           failures.push({ filename: u.filename, error: `[create-contact] ${e?.message || String(e)}` });
         }
