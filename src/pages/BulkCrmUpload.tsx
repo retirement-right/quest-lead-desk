@@ -534,16 +534,36 @@ export default function BulkCrmUpload() {
               <input type="checkbox" checked={migrateDryRun} onChange={(e) => setMigrateDryRun(e.target.checked)} />
               Dry run (preview only)
             </label>
-            <Button onClick={runMigrateNotes} disabled={migrating}>
+            <Button onClick={runMigrateNotes} disabled={migrating || (!migrateDryRun && !canRunLiveMigration)}>
               {migrating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {migrateDryRun ? "Preview migration" : "Run migration"}
             </Button>
           </div>
+          {!migrateDryRun && !canRunLiveMigration && (
+            <p className="text-xs text-muted-foreground">
+              Live migration is disabled until a dry run finds matching contacts and has no failures.
+            </p>
+          )}
+          {migrateError && (
+            <div className="text-xs rounded border border-destructive/30 bg-destructive/10 text-destructive p-3">
+              {migrateError}
+            </div>
+          )}
           {migrateResult && (
             <div className="text-xs bg-muted rounded p-3 max-h-72 overflow-auto">
               <div className="font-medium mb-1">
-                scanned {migrateResult.scanned} · matched {migrateResult.matched} · updated {migrateResult.updated} · failed {migrateResult.failed}
+                {migrateResult.dry_run ? "Dry run complete" : "Migration complete"}: scanned {migrateResult.scanned} · matched {migrateResult.matched} · {migrateResult.dry_run ? "would update" : "updated"} {migrateResult.updated} · failed {migrateResult.failed}
               </div>
+              {migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0 && (
+                <div className="mb-2 text-muted-foreground">
+                  Preview found contacts to update. You can now uncheck Dry run and run the migration.
+                </div>
+              )}
+              {migrateResult.dry_run && migrateResult.matched === 0 && (
+                <div className="mb-2 text-muted-foreground">
+                  Nothing would be changed. Leave Dry run checked and do not run the live migration yet.
+                </div>
+              )}
               <ul className="space-y-1">
                 {(migrateResult.results ?? []).map((r: any, i: number) => (
                   <li key={i}>
