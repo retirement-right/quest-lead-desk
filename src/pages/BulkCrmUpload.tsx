@@ -236,6 +236,18 @@ export default function BulkCrmUpload() {
       </Card>
 
       {reportReady && (
+        <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b flex items-center justify-between gap-3">
+          <div className="text-sm">
+            <span className="font-medium text-green-600">{matched.length} matched</span>
+            <span className="text-muted-foreground"> · {ambiguous.length} ambiguous · {unmatched.length} unmatched</span>
+          </div>
+          <Button onClick={confirmUpload} disabled={!matched.length || uploading} size="lg">
+            {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading {progress.done}/{progress.total}…</> : `Confirm & upload ${matched.length} matched files`}
+          </Button>
+        </div>
+      )}
+
+      {reportReady && (
         <>
           <Card>
             <CardHeader>
