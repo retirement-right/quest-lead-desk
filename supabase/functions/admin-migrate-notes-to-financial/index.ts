@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as any));
     const dryRun = !!body.dry_run;
-    const limit = Math.min(Math.max(Number(body.limit) || 100, 1), 500);
+    const limit = Math.min(Math.max(Number(body.limit) || 1000, 1), 5000);
     const onlyId: string | undefined = body.lead_id;
 
     const leadjig = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
