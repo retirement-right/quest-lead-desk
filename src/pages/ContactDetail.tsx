@@ -68,6 +68,8 @@ export default function ContactDetail() {
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
   const [cpSeminarLocation, setCpSeminarLocation] = useState<string>("");
+  const [financial, setFinancial] = useState<Record<string, string>>({});
+  const [parsingNotes, setParsingNotes] = useState(false);
 
   // Follow-up fields
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
