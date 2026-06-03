@@ -462,7 +462,7 @@ export default function BulkCrmUpload() {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      const { data: { session } } = await cloudSupabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { toast.error("Not signed in"); return; }
       const { data, error } = await cloudSupabase.functions.invoke("admin-migrate-notes-to-financial", {
         body: { dry_run: migrateDryRun, limit: 500 },
