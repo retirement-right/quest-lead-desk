@@ -12,3 +12,12 @@ verify_jwt = false
 
 [functions.list-bookedin-appointments]
 verify_jwt = false
+
+[functions.lead-documents]
+verify_jwt = false
+
+[functions.extract-questionnaire]
+verify_jwt = false
+
+[functions.admin-migrate-notes-to-financial]
+verify_jwt = false
