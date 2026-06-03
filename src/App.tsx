@@ -13,6 +13,7 @@ import Appointments from "./pages/Appointments";
 import FailedSyncs from "./pages/FailedSyncs";
 import Birthdays from "./pages/Birthdays";
 import NotFound from "./pages/NotFound.tsx";
+import BulkCrmUpload from "./pages/BulkCrmUpload";
 
 
 const queryClient = new QueryClient();
@@ -32,6 +33,8 @@ const App = () => (
             <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
             <Route path="/failed-syncs" element={<RequireAuth><FailedSyncs /></RequireAuth>} />
             <Route path="/birthdays" element={<RequireAuth><Birthdays /></RequireAuth>} />
+            <Route path="/admin/bulk-crm-upload" element={<RequireAuth><BulkCrmUpload /></RequireAuth>} />
+
 
             <Route path="*" element={<NotFound />} />
           </Routes>
