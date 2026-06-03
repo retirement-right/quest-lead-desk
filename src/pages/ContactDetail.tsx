@@ -379,6 +379,21 @@ export default function ContactDetail() {
       fill(cpNetWorth, f.net_worth, setCpNetWorth);
       fill(cpPrimaryConcern, f.primary_concern, setCpPrimaryConcern);
       fill(cpSeminarLocation, f.seminar_location, setCpSeminarLocation);
+      if (f.financial && typeof f.financial === "object") {
+        setFinancial((prev) => {
+          const next = { ...prev };
+          for (const [k, v] of Object.entries(f.financial as Record<string, unknown>)) {
+            if (v == null) continue;
+            const s = String(v).trim();
+            if (!s) continue;
+            if (!next[k] || !String(next[k]).trim()) {
+              next[k] = s;
+              filled++;
+            }
+          }
+          return next;
+        });
+      }
       if (f.additional_notes) {
         const extra = String(f.additional_notes).trim();
         if (extra) {
@@ -397,6 +412,48 @@ export default function ContactDetail() {
       setImporting(false);
     }
   };
+
+  const onParseNotesIntoFields = async () => {
+    if (!cpAdditionalNotes.trim() && !notes.trim()) {
+      toast.error("No notes to parse");
+      return;
+    }
+    setParsingNotes(true);
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const combined = [cpAdditionalNotes, notes].filter(Boolean).join("\n\n");
+      const { data, error } = await cloudSupabase.functions.invoke("extract-questionnaire", {
+        body: { text: combined },
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      const f = ((data as any)?.fields ?? {}) as Record<string, any>;
+      let filled = 0;
+      if (f.financial && typeof f.financial === "object") {
+        setFinancial((prev) => {
+          const next = { ...prev };
+          for (const [k, v] of Object.entries(f.financial as Record<string, unknown>)) {
+            if (v == null) continue;
+            const s = String(v).trim();
+            if (!s) continue;
+            if (!next[k] || !String(next[k]).trim()) {
+              next[k] = s;
+              filled++;
+            }
+          }
+          return next;
+        });
+      }
+      toast.success(`Pulled ${filled} value${filled === 1 ? "" : "s"} from notes into fields. Review and Save.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not parse notes");
+    } finally {
+      setParsingNotes(false);
+    }
+  };
+
+
 
 
 
