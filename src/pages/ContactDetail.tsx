@@ -37,6 +37,7 @@ export default function ContactDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [docs, setDocs] = useState<LeadDocument[]>([]);
@@ -44,6 +45,7 @@ export default function ContactDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // editable fields
   const [status, setStatus] = useState<string>("");
