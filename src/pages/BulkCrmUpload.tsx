@@ -515,7 +515,7 @@ export default function BulkCrmUpload() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Scan every contact whose notes contain retirement-questionnaire data (income, IRA, 401k, mortgage, parents' ages, etc.), move those values into the structured Financial & Family form fields, and remove them from the notes. Start with a dry run.
+            Scan every contact whose Notes or Additional Notes contain retirement-questionnaire data (income, IRA, 401k, mortgage, parents' ages, etc.), move those values into the structured Financial & Family form fields, and remove them from the notes. Start with a dry run.
           </p>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm">
@@ -537,9 +537,12 @@ export default function BulkCrmUpload() {
                   <li key={i}>
                     {r.error
                       ? <span className="text-destructive">{r.id}: {r.error}</span>
-                      : <span>{r.name || r.email || r.id} — filled {r.filled} fields</span>}
+                      : <span>{r.name || r.email || r.id} — {migrateResult.dry_run ? "would fill" : "filled"} {r.filled} fields</span>}
                   </li>
                 ))}
+                {(migrateResult.results ?? []).length === 0 && (
+                  <li className="text-muted-foreground">No matching questionnaire notes found in the scanned contacts.</li>
+                )}
               </ul>
             </div>
           )}
