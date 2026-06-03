@@ -139,6 +139,7 @@ export default function ContactDetail() {
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
         setCpSeminarLocation(cp.seminar_location ?? "");
+        setFinancial((cp.financial && typeof cp.financial === "object") ? { ...cp.financial } : {});
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
