@@ -392,6 +392,9 @@ export default function ContactDetail() {
     } finally {
       setImporting(false);
     }
+  };
+
+
 
   const onDownload = async (doc: LeadDocument) => {
     const headers = await staffAuthHeaders();
