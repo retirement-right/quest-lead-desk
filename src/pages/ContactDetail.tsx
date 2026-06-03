@@ -758,17 +758,29 @@ export default function ContactDetail() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-base">Documents</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => fileInput.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Upload
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => importInput.current?.click()}
+                disabled={importing || uploading}
+                title="Read a questionnaire (PDF or photo) and auto-fill empty fields"
+              >
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                Import questionnaire
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Upload
+              </Button>
+            </div>
             <input
               ref={fileInput}
               type="file"
@@ -776,6 +788,17 @@ export default function ContactDetail() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onUpload(f);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={importInput}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onImportQuestionnaire(f);
                 e.target.value = "";
               }}
             />
