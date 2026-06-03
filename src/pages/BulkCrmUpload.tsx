@@ -170,6 +170,27 @@ function toNumber(s?: string | null): number | null {
 const isBlank = (v: any) =>
   v == null || v === "" || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
 
+async function functionErrorMessage(error: any, fallback: string) {
+  const context = error?.context;
+  if (context && typeof context.json === "function") {
+    try {
+      const body = await context.clone().json();
+      if (body?.error) return String(body.error);
+    } catch {
+      // Fall through to text/error message.
+    }
+  }
+  if (context && typeof context.text === "function") {
+    try {
+      const text = await context.clone().text();
+      if (text) return text;
+    } catch {
+      // Fall through to the SDK message.
+    }
+  }
+  return error?.message || fallback;
+}
+
 function buildClientProfilePatch(f: ExtractedFields, existing: Record<string, any>) {
   const patch: Record<string, any> = { ...existing };
   let changed = false;
@@ -468,7 +489,8 @@ export default function BulkCrmUpload() {
         body: { dry_run: migrateDryRun, limit: 500 },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
+      if ((data as any)?.error) throw new Error((data as any).error);
       setMigrateResult(data);
       toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
     } catch (e: any) {

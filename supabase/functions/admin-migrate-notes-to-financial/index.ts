@@ -8,7 +8,8 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { jsonResponse, requireStaffAuth } from "../_shared/followup-auth.ts";
 
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
-const LEADJIG_SERVICE_ROLE_KEY = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
+const LEADJIG_ANON_KEY =
+  Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
@@ -87,15 +88,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  const auth = await requireStaffAuth(req);
-  if (auth instanceof Response) return auth;
+  try {
+    const auth = await requireStaffAuth(req);
+    if (auth instanceof Response) return auth;
 
-  const body = await req.json().catch(() => ({} as any));
-  const dryRun = !!body.dry_run;
-  const limit = Math.min(Math.max(Number(body.limit) || 100, 1), 500);
-  const onlyId: string | undefined = body.lead_id;
+    const staffJwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
 
-  const leadjig = createClient(LEADJIG_URL, LEADJIG_SERVICE_ROLE_KEY);
+    const body = await req.json().catch(() => ({} as any));
+    const dryRun = !!body.dry_run;
+    const limit = Math.min(Math.max(Number(body.limit) || 100, 1), 500);
+    const onlyId: string | undefined = body.lead_id;
+
+    const leadjig = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${staffJwt}` } },
+      auth: { persistSession: false },
+    });
 
   let query = leadjig
     .from("leadjig_leads")
@@ -154,5 +161,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse({ ok: true, dry_run: dryRun, scanned, matched, updated, failed, results });
+    return jsonResponse({ ok: true, dry_run: dryRun, scanned, matched, updated, failed, results });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Migration failed";
+    console.error("admin-migrate-notes-to-financial error:", message);
+    return jsonResponse({ error: message }, 500);
+  }
 });
