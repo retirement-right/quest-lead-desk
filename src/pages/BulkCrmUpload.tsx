@@ -486,7 +486,7 @@ export default function BulkCrmUpload() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { toast.error("Not signed in"); return; }
       const { data, error } = await cloudSupabase.functions.invoke("admin-migrate-notes-to-financial", {
-        body: { dry_run: migrateDryRun, limit: 500 },
+        body: { dry_run: migrateDryRun, limit: 5000 },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
