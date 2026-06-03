@@ -348,12 +348,33 @@ export default function BulkCrmUpload() {
     const token = session.access_token;
     const failures: { filename: string; error: string }[] = [];
     let created = 0;
+    let enriched = 0;
     setProgress({ done: 0, total, failures: [], created: 0 });
 
     let i = 0;
     for (const m of matched) {
       try {
         await uploadToLead(m.lead_id, m.filename, m.blob, token, i);
+        // Enrich existing contact with any new info from the Excel (only fills empty fields)
+        try {
+          const { data: existing } = await supabase
+            .from("leadjig_leads")
+            .select("email, phone, address, date_of_birth, raw_payload, client_profile")
+            .eq("id", m.lead_id)
+            .maybeSingle();
+          if (existing) {
+            const patch = buildLeadPatch(m.fields, existing as any);
+            if (Object.keys(patch).length > 0) {
+              const { error: upErr } = await supabase
+                .from("leadjig_leads")
+                .update(patch)
+                .eq("id", m.lead_id);
+              if (!upErr) enriched++;
+            }
+          }
+        } catch (e) {
+          console.warn("enrich failed", m.filename, e);
+        }
       } catch (e: any) {
         failures.push({ filename: m.filename, error: e?.message || String(e) });
       }
@@ -370,6 +391,7 @@ export default function BulkCrmUpload() {
             [f.firstName, f.lastName].filter(Boolean).join(" ") ||
             [u.first, u.last].filter(Boolean).join(" ") ||
             null;
+          const { patch: cpPatch } = buildClientProfilePatch(f, {});
           const payload: Record<string, any> = {
             name: combinedName,
             raw_payload: {
@@ -379,11 +401,13 @@ export default function BulkCrmUpload() {
               date_of_birth: f.dob || null,
               city_state_zip: f.cityStateZip || null,
               source: "bulk-crm-upload",
+              crm_extracted: f.allKv || null,
             },
             email: f.email || null,
             phone: f.phone || null,
             address: [f.address, f.cityStateZip].filter(Boolean).join(", ") || null,
-            date_of_birth: f.dob || null,
+            date_of_birth: toIsoDate(f.dob),
+            client_profile: Object.keys(cpPatch).length ? cpPatch : null,
           };
           const { data: newLead, error: insErr } = await supabase
             .from("leadjig_leads")
@@ -403,8 +427,8 @@ export default function BulkCrmUpload() {
 
     setUploading(false);
     const ok = total - failures.length;
-    if (failures.length === 0) toast.success(`Uploaded ${ok} files (created ${created} new contacts)`);
-    else toast.error(`Uploaded ${ok} / ${total} · ${created} new contacts · ${failures.length} failed`);
+    if (failures.length === 0) toast.success(`Uploaded ${ok} files · enriched ${enriched} existing · created ${created} new`);
+    else toast.error(`Uploaded ${ok} / ${total} · enriched ${enriched} · created ${created} · ${failures.length} failed`);
   };
 
   const csv = useMemo(() => {
