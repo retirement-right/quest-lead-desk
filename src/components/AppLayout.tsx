@@ -142,6 +142,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </Button>
             </Link>
 
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  Admin <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/admin/bulk-crm-upload" className="flex items-center gap-2 cursor-pointer">
+                    <Upload className="h-4 w-4" /> Bulk CRM Upload
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
