@@ -37,6 +37,24 @@ Deno.serve(async (req) => {
       const contentType = req.headers.get("content-type") ?? "";
       if (!contentType.includes("multipart/form-data")) {
         const body = await req.json().catch(() => ({}));
+        const action = String(body.action ?? "list");
+        if (action === "signed-url") {
+          const id = String(body.id ?? "").trim();
+          if (!id) return jsonResponse({ error: "id is required" }, 400);
+
+          const { data: doc, error: fetchErr } = await admin
+            .from("lead_documents")
+            .select("file_path")
+            .eq("id", id)
+            .maybeSingle();
+          if (fetchErr) throw fetchErr;
+          if (!doc?.file_path) return jsonResponse({ error: "Document not found" }, 404);
+
+          const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(doc.file_path, 60);
+          if (error) throw error;
+          return jsonResponse({ signedUrl: data.signedUrl });
+        }
+
         const leadId = String(body.leadId ?? "").trim();
         if (!leadId) return jsonResponse({ error: "leadId is required" }, 400);
 
@@ -66,7 +84,7 @@ Deno.serve(async (req) => {
 
       const { data, error: insErr } = await admin
         .from("lead_documents")
-        .insert({ lead_id: leadId, file_name: fileName, file_path: path, uploaded_by: auth.userId })
+        .insert({ lead_id: leadId, file_name: fileName, file_path: path, uploaded_by: null })
         .select("*")
         .single();
 
