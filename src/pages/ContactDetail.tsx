@@ -322,6 +322,77 @@ export default function ContactDetail() {
     }
   };
 
+  const parseIsoDate = (v: unknown): Date | undefined => {
+    if (!v || typeof v !== "string") return undefined;
+    const d = parseISO(v);
+    return isNaN(d.getTime()) ? undefined : d;
+  };
+
+  const onImportQuestionnaire = async (file: File) => {
+    if (!id) return;
+    setImporting(true);
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const { data, error } = await cloudSupabase.functions.invoke("extract-questionnaire", {
+        body: form,
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      const f = ((data as any)?.fields ?? {}) as Record<string, any>;
+
+      let filled = 0;
+      const fill = (cur: string, val: unknown, set: (v: string) => void) => {
+        if (cur.trim()) return;
+        const s = val == null ? "" : String(val).trim();
+        if (!s) return;
+        set(s);
+        filled++;
+      };
+      const fillDate = (cur: Date | undefined, val: unknown, set: (d: Date | undefined) => void) => {
+        if (cur) return;
+        const d = parseIsoDate(val);
+        if (!d) return;
+        set(d);
+        filled++;
+      };
+
+      fill(firstName, f.first_name, setFirstName);
+      fill(lastName, f.last_name, setLastName);
+      fill(email, f.email, setEmail);
+      fill(phone, f.phone, setPhone);
+      fill(address, f.address, setAddress);
+      fillDate(birthdate, f.date_of_birth, setBirthdate);
+      fill(cpSpouseName, f.spouse_name, setCpSpouseName);
+      fillDate(cpSpouseBirthdate, f.spouse_birthdate, setCpSpouseBirthdate);
+      fillDate(cpRetirementDate, f.retirement_date, setCpRetirementDate);
+      if (!cpNumChildren && f.num_children != null) {
+        setCpNumChildren(String(f.num_children));
+        filled++;
+      }
+      fill(cpNetWorth, f.net_worth, setCpNetWorth);
+      fill(cpPrimaryConcern, f.primary_concern, setCpPrimaryConcern);
+      fill(cpSeminarLocation, f.seminar_location, setCpSeminarLocation);
+      if (f.additional_notes) {
+        const extra = String(f.additional_notes).trim();
+        if (extra) {
+          setCpAdditionalNotes((prev) => (prev.trim() ? `${prev}\n\n${extra}` : extra));
+          filled++;
+        }
+      }
+
+      // Also save the original file to documents
+      await onUpload(file);
+
+      toast.success(`Imported ${filled} field${filled === 1 ? "" : "s"} from questionnaire. Review and Save.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not read questionnaire");
+    } finally {
+      setImporting(false);
+    }
+
   const onDownload = async (doc: LeadDocument) => {
     const headers = await staffAuthHeaders();
     if (!headers) return;
