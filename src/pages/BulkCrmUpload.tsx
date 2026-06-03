@@ -552,7 +552,9 @@ export default function BulkCrmUpload() {
             </label>
             <Button onClick={runMigrateNotes} disabled={migrating || (!migrateDryRun && !canRunLiveMigration)}>
               {migrating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {migrateDryRun ? "Preview migration" : "Run migration"}
+              {migrating && migrateOffset != null
+                ? `Scanning… (${migrateOffset} contacts)`
+                : (migrateDryRun ? "Preview migration" : "Run migration")}
             </Button>
           </div>
           {!migrateDryRun && !canRunLiveMigration && (
