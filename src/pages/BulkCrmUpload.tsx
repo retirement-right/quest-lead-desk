@@ -106,6 +106,8 @@ async function extractFieldsFromXlsx(blob: Blob, fallback: { first: string; last
     const primaryName = get("primaryname", "name", "clientname");
     const spouseName = get("spousename", "spouse");
     const { first, last } = splitName(primaryName);
+    const allKv: Record<string, string> = {};
+    kv.forEach((v, k) => { allKv[k] = v; });
 
     return {
       primaryName,
@@ -117,6 +119,16 @@ async function extractFieldsFromXlsx(blob: Blob, fallback: { first: string; last
       address: get("address", "streetaddress"),
       cityStateZip: get("citystatezip", "citystate", "city"),
       dob: get("primarydob", "dob", "dateofbirth", "birthdate"),
+      spouseDob: get("spousedob", "spousedateofbirth", "spousebirthdate", "spousebirthday"),
+      retirementDate: get("retirementdate", "targetretirementdate", "retirement", "retireby"),
+      netWorth: get("networth", "totalnetworth", "estimatednetworth", "assets", "totalassets"),
+      primaryConcern: get("primaryconcern", "topconcern", "topconcerns", "concern", "concerns", "biggestconcern"),
+      additionalNotes: get("additionalnotes", "notes", "comments", "additionalcomments", "advisornotes"),
+      numChildren: get("numchildren", "numberofchildren", "children", "kids", "ofchildren"),
+      occupation: get("occupation", "primaryoccupation", "job", "jobtitle", "title"),
+      employer: get("employer", "primaryemployer", "company"),
+      seminarLocation: get("seminarlocation", "eventlocation", "location", "venue"),
+      allKv,
     };
   } catch (e) {
     console.warn("xlsx parse failed", e);
