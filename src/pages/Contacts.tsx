@@ -269,19 +269,45 @@ export default function Contacts() {
   };
 
   const sorted = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    // Rank 0 = name starts with needle, 1 = name contains needle, 2 = other field match
+    const nameRank = (l: Lead): number => {
+      if (!needle) return 0;
+      const name = fullName(l).toLowerCase();
+      if (!name || name === "—") return 2;
+      const parts = name.split(/\s+/);
+      if (parts.some((p) => p.startsWith(needle))) return 0;
+      if (name.includes(needle)) return 1;
+      return 2;
+    };
+
+    let arr = [...filtered];
     if (sortStage !== "none") {
-      const arr = [...filtered];
       arr.sort((a, b) => {
+        if (needle) {
+          const r = nameRank(a) - nameRank(b);
+          if (r !== 0) return r;
+        }
         const diff = stagePriority(a) - stagePriority(b);
         return sortStage === "asc" ? diff : -diff;
       });
       return arr;
     }
-    if (sortRegistered === "none") return filtered;
-    const arr = [...filtered];
-    arr.sort((a, b) => sortRegistered === "asc" ? regTime(a) - regTime(b) : regTime(b) - regTime(a));
+    if (sortRegistered !== "none") {
+      arr.sort((a, b) => {
+        if (needle) {
+          const r = nameRank(a) - nameRank(b);
+          if (r !== 0) return r;
+        }
+        return sortRegistered === "asc" ? regTime(a) - regTime(b) : regTime(b) - regTime(a);
+      });
+      return arr;
+    }
+    if (needle) {
+      arr.sort((a, b) => nameRank(a) - nameRank(b));
+    }
     return arr;
-  }, [filtered, sortRegistered, sortStage]);
+  }, [filtered, sortRegistered, sortStage, q]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
