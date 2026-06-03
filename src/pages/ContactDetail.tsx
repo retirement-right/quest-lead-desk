@@ -502,7 +502,13 @@ export default function ContactDetail() {
           return next;
         });
       }
+      const cleaned = typeof f.cleaned_notes === "string" ? f.cleaned_notes.trim() : "";
+      if (cleaned !== "" || f.cleaned_notes === null) {
+        // Only replace notes if AI clearly returned a cleaned version
+        if (f.cleaned_notes !== undefined) setNotes(cleaned);
+      }
       toast.success(`Pulled ${filled} value${filled === 1 ? "" : "s"} from notes into fields. Review and Save.`);
+
     } catch (e: any) {
       toast.error(e?.message || "Could not parse notes");
     } finally {
