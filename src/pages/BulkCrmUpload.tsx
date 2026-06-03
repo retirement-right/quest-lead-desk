@@ -481,6 +481,7 @@ export default function BulkCrmUpload() {
   const [migrateResult, setMigrateResult] = useState<any>(null);
   const [migrateError, setMigrateError] = useState<string | null>(null);
   const canRunLiveMigration = !!migrateResult && migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0;
+  const [migrateOffset, setMigrateOffset] = useState<number | null>(null);
   const runMigrateNotes = async () => {
     if (!migrateDryRun && !canRunLiveMigration) {
       toast.error("Run a dry run with matching contacts before applying changes.");
@@ -490,25 +491,40 @@ export default function BulkCrmUpload() {
     if (!migrateDryRun && !confirm("Apply these note-to-financial-field updates now? This will change contact records.")) return;
     setMigrating(true);
     setMigrateError(null);
-    if (migrateDryRun) setMigrateResult(null);
+    setMigrateResult(null);
+    setMigrateOffset(0);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) { toast.error("Not signed in"); return; }
-      const { data, error } = await cloudSupabase.functions.invoke("admin-migrate-notes-to-financial", {
-        body: { dry_run: migrateDryRun, limit: 5000 },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setMigrateResult(data);
-      if (data.matched === 0) toast.info("Dry run finished: no matching questionnaire notes found.");
-      else toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
+      const BATCH = 100;
+      let offset = 0;
+      const agg: any = { dry_run: migrateDryRun, scanned: 0, matched: 0, updated: 0, failed: 0, results: [] };
+      for (let page = 0; page < 200; page++) {
+        setMigrateOffset(offset);
+        const { data, error } = await cloudSupabase.functions.invoke("admin-migrate-notes-to-financial", {
+          body: { dry_run: migrateDryRun, offset, batch_size: BATCH },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) throw new Error(await functionErrorMessage(error, "Migration failed"));
+        if ((data as any)?.error) throw new Error((data as any).error);
+        agg.scanned += data.scanned || 0;
+        agg.matched += data.matched || 0;
+        agg.updated += data.updated || 0;
+        agg.failed += data.failed || 0;
+        if (Array.isArray(data.results)) agg.results.push(...data.results);
+        setMigrateResult({ ...agg });
+        if (data.next_offset == null) break;
+        offset = data.next_offset;
+      }
+      if (agg.matched === 0) toast.info("Finished: no matching questionnaire notes found.");
+      else toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${agg.matched}, updated ${agg.updated}, failed ${agg.failed}`);
     } catch (e: any) {
       const message = e?.message || "Migration failed";
       setMigrateError(message);
       toast.error(message);
     } finally {
       setMigrating(false);
+      setMigrateOffset(null);
     }
   };
 
