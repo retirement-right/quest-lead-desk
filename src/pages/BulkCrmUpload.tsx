@@ -47,7 +47,7 @@ async function fetchAllLeads(): Promise<Lead[]> {
   while (true) {
     const { data, error } = await supabase
       .from("leadjig_leads" as any)
-      .select("id, first_name, last_name, name, guest_name, email")
+      .select("id, name, guest_name, email")
       .range(from, from + PAGE - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
@@ -56,12 +56,18 @@ async function fetchAllLeads(): Promise<Lead[]> {
     from += PAGE;
   }
   return all.map((l: any) => {
-    const full =
-      (l.first_name || l.last_name)
-        ? `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim()
-        : l.name || l.guest_name || "";
-    const firstStr = l.first_name ?? full.split(/\s+/)[0] ?? "";
-    const lastStr = l.last_name ?? full.split(/\s+/).slice(-1)[0] ?? "";
+    const full: string = (l.name || l.guest_name || "").trim();
+    let firstStr = "";
+    let lastStr = "";
+    if (full.includes(",")) {
+      const [lp, rp] = full.split(",");
+      lastStr = (lp || "").trim();
+      firstStr = (rp || "").trim().split(/\s+/)[0] ?? "";
+    } else {
+      const parts = full.split(/\s+/).filter(Boolean);
+      firstStr = parts[0] ?? "";
+      lastStr = parts.length > 1 ? parts[parts.length - 1] : "";
+    }
     return { id: l.id, full, first: norm(firstStr), last: norm(lastStr), email: l.email };
   });
 }
