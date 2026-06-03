@@ -45,21 +45,25 @@ const SCHEMA = {
     },
     cleaned_notes: {
       type: ["string","null"],
-      description: "The original notes with all retirement-questionnaire lines (employment, income, social security, IRA, 401k, savings, investments, real estate, mortgage, health, parents ages, desired retirement age) removed. Preserve unrelated notes verbatim. If nothing remains, return null.",
+      description: "The original Main Notes with all retirement-questionnaire lines removed. Preserve unrelated notes verbatim. If nothing remains, return null.",
+    },
+    cleaned_additional_notes: {
+      type: ["string","null"],
+      description: "The original Additional Notes with all retirement-questionnaire lines removed. Preserve unrelated notes verbatim. If nothing remains, return null.",
     },
   },
-  required: ["financial","cleaned_notes"],
+  required: ["financial","cleaned_notes","cleaned_additional_notes"],
 };
 
 const SYSTEM = `You read free-form CRM notes for retirement-planning clients.
 Extract structured 'financial' fields whenever a value is present (money as short strings with $; employment as 'Working' or 'Retired'; health as 'Good'/'Fair'/'Poor'; parents like 'Mother 70 D, Father 80 D' where L=living D=deceased).
-Also return 'cleaned_notes': the original text with every line you extracted removed, preserving unrelated commentary verbatim.
+Also return cleaned_notes and cleaned_additional_notes with every line you extracted removed from the matching source section, preserving unrelated commentary verbatim.
 Return null for missing fields. Do not invent data.`;
 
 // Heuristic regex to find candidates without hitting AI for every row.
 const TRIGGER = /(working income|pension income|social security|401\s*\(?k\)?|ira\b|real estate value|mortgage payment|spouse health|primary health|desired retirement age|ages of (primary|spouse)'?s parents|savings or cash on hand|investments?:|net worth)/i;
 
-async function extract(notes: string) {
+async function extract(notes: string, additionalNotes: string) {
   const res = await fetch(AI_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -67,7 +71,7 @@ async function extract(notes: string) {
       model: MODEL,
       messages: [
         { role: "system", content: SYSTEM },
-        { role: "user", content: `Notes:\n\n${notes}` },
+        { role: "user", content: `Main Notes:\n${notes || "(empty)"}\n\nAdditional Notes:\n${additionalNotes || "(empty)"}` },
       ],
       response_format: {
         type: "json_schema",
@@ -96,7 +100,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as any));
     const dryRun = !!body.dry_run;
-    const limit = Math.min(Math.max(Number(body.limit) || 100, 1), 500);
+    const limit = Math.min(Math.max(Number(body.limit) || 1000, 1), 5000);
     const onlyId: string | undefined = body.lead_id;
 
     const leadjig = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
@@ -107,7 +111,6 @@ Deno.serve(async (req) => {
   let query = leadjig
     .from("leadjig_leads")
     .select("id, name, email, notes, client_profile")
-    .not("notes", "is", null)
     .limit(limit);
   if (onlyId) query = query.eq("id", onlyId);
 
@@ -120,14 +123,17 @@ Deno.serve(async (req) => {
   for (const row of rows ?? []) {
     scanned++;
     const notes = (row.notes ?? "") as string;
-    if (!notes || !TRIGGER.test(notes)) continue;
+    const prevCp = (row.client_profile ?? {}) as Record<string, any>;
+    const additionalNotes = String(prevCp.additional_notes ?? "");
+    const sourceText = [notes, additionalNotes].filter(Boolean).join("\n\n");
+    if (!sourceText || !TRIGGER.test(sourceText)) continue;
     matched++;
     try {
-      const out = await extract(notes);
+      const out = await extract(notes, additionalNotes);
       const fin = (out.financial ?? {}) as Record<string, string | null>;
       const cleaned = (out.cleaned_notes ?? "") as string | null;
+      const cleanedAdditional = (out.cleaned_additional_notes ?? "") as string | null;
 
-      const prevCp = (row.client_profile ?? {}) as Record<string, any>;
       const prevFin = (prevCp.financial && typeof prevCp.financial === "object") ? prevCp.financial : {};
       const mergedFin = { ...prevFin };
       let filled = 0;
@@ -143,7 +149,11 @@ Deno.serve(async (req) => {
 
       const patch = {
         notes: cleaned && cleaned.trim() ? cleaned.trim() : null,
-        client_profile: { ...prevCp, financial: mergedFin },
+        client_profile: {
+          ...prevCp,
+          additional_notes: cleanedAdditional && cleanedAdditional.trim() ? cleanedAdditional.trim() : null,
+          financial: mergedFin,
+        },
       };
 
       if (!dryRun) {
@@ -154,7 +164,7 @@ Deno.serve(async (req) => {
         if (uErr) throw new Error(uErr.message);
       }
       updated++;
-      results.push({ id: row.id, name: row.name, email: row.email, filled, cleaned_len: (cleaned ?? "").length });
+      results.push({ id: row.id, name: row.name, email: row.email, filled, cleaned_len: (cleaned ?? "").length, cleaned_additional_len: (cleanedAdditional ?? "").length });
     } catch (e) {
       failed++;
       results.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
