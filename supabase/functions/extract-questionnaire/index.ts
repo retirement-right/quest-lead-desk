@@ -45,6 +45,10 @@ const SCHEMA = {
       description: "Any leftover info that does not map to a structured field. Do NOT duplicate values already returned in `financial`.",
     },
     seminar_location: { type: ["string", "null"] },
+    cleaned_notes: {
+      type: ["string", "null"],
+      description: "When the input was free-form notes (not a questionnaire file): the original notes with every line whose value you extracted into `financial` or a top-level field removed. Preserve unrelated commentary verbatim. Return null when there was no notes input or nothing remains.",
+    },
     financial: {
       type: "object",
       additionalProperties: false,
@@ -57,9 +61,10 @@ const SCHEMA = {
     "first_name", "last_name", "email", "phone", "address", "date_of_birth",
     "spouse_name", "spouse_birthdate", "retirement_date", "num_children",
     "net_worth", "primary_concern", "additional_notes", "seminar_location",
-    "financial",
+    "cleaned_notes", "financial",
   ],
 };
+
 
 const SYSTEM = `You extract client information from financial/retirement questionnaires (typed or handwritten) OR from free-form advisor notes.
 - Dates: convert to YYYY-MM-DD. If only age is given, leave date null.
