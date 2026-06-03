@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage, NET_WORTH_OPTIONS, PRIMARY_CONCERN_OPTIONS, effectiveLifecycleStage, isAttendedLead } from "@/lib/supabase";
@@ -29,6 +29,63 @@ const ReadOnly = ({ label, value }: { label: string; value?: string | null }) =>
     <Label className="text-muted-foreground">{label}</Label>
     <div className="text-sm rounded-md border bg-muted/40 px-3 py-2 min-h-10">
       {value || <span className="text-muted-foreground">—</span>}
+    </div>
+  </div>
+);
+
+type FinProps = {
+  k: string;
+  label: string;
+  financial: Record<string, string>;
+  setFinancial: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+};
+
+const FinField = ({ k, label, financial, setFinancial }: FinProps) => (
+  <div className="space-y-1.5">
+    <Label htmlFor={`fin_${k}`}>{label}</Label>
+    <Input
+      id={`fin_${k}`}
+      value={financial[k] ?? ""}
+      onChange={(e) => setFinancial((p) => ({ ...p, [k]: e.target.value }))}
+    />
+  </div>
+);
+
+type PairRow = { key: string; label: string };
+const PairGrid = ({
+  title,
+  rows,
+  financial,
+  setFinancial,
+}: {
+  title: string;
+  rows: PairRow[];
+  financial: Record<string, string>;
+  setFinancial: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+}) => (
+  <div>
+    <h4 className="text-sm font-semibold mb-3">{title}</h4>
+    <div className="grid gap-3" style={{ gridTemplateColumns: "minmax(180px,1fr) 1fr 1fr" }}>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground" />
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">Primary</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">Spouse</div>
+      {rows.map((r) => (
+        <React.Fragment key={r.key}>
+          <Label className="self-center text-sm">{r.label}</Label>
+          <Input
+            value={financial[`${r.key}_primary`] ?? ""}
+            onChange={(e) =>
+              setFinancial((p) => ({ ...p, [`${r.key}_primary`]: e.target.value }))
+            }
+          />
+          <Input
+            value={financial[`${r.key}_spouse`] ?? ""}
+            onChange={(e) =>
+              setFinancial((p) => ({ ...p, [`${r.key}_spouse`]: e.target.value }))
+            }
+          />
+        </React.Fragment>
+      ))}
     </div>
   </div>
 );
@@ -68,6 +125,8 @@ export default function ContactDetail() {
   const [cpPrimaryConcern, setCpPrimaryConcern] = useState<string>("");
   const [cpAdditionalNotes, setCpAdditionalNotes] = useState<string>("");
   const [cpSeminarLocation, setCpSeminarLocation] = useState<string>("");
+  const [financial, setFinancial] = useState<Record<string, string>>({});
+  const [parsingNotes, setParsingNotes] = useState(false);
 
   // Follow-up fields
   const [fuDate, setFuDate] = useState<string>(""); // datetime-local
@@ -137,6 +196,7 @@ export default function ContactDetail() {
         setCpPrimaryConcern(cp.primary_concern ?? "");
         setCpAdditionalNotes(cp.additional_notes ?? "");
         setCpSeminarLocation(cp.seminar_location ?? "");
+        setFinancial((cp.financial && typeof cp.financial === "object") ? { ...cp.financial } : {});
         setFuDate(cp.followup_date ? toLocalInput(cp.followup_date) : "");
         setFuType(cp.followup_type ?? "");
         setFuNotes(cp.followup_notes ?? "");
@@ -186,6 +246,7 @@ export default function ContactDetail() {
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
         seminar_location: cpSeminarLocation.trim() || null,
+        financial,
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
@@ -375,6 +436,21 @@ export default function ContactDetail() {
       fill(cpNetWorth, f.net_worth, setCpNetWorth);
       fill(cpPrimaryConcern, f.primary_concern, setCpPrimaryConcern);
       fill(cpSeminarLocation, f.seminar_location, setCpSeminarLocation);
+      if (f.financial && typeof f.financial === "object") {
+        setFinancial((prev) => {
+          const next = { ...prev };
+          for (const [k, v] of Object.entries(f.financial as Record<string, unknown>)) {
+            if (v == null) continue;
+            const s = String(v).trim();
+            if (!s) continue;
+            if (!next[k] || !String(next[k]).trim()) {
+              next[k] = s;
+              filled++;
+            }
+          }
+          return next;
+        });
+      }
       if (f.additional_notes) {
         const extra = String(f.additional_notes).trim();
         if (extra) {
@@ -393,6 +469,48 @@ export default function ContactDetail() {
       setImporting(false);
     }
   };
+
+  const onParseNotesIntoFields = async () => {
+    if (!cpAdditionalNotes.trim() && !notes.trim()) {
+      toast.error("No notes to parse");
+      return;
+    }
+    setParsingNotes(true);
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const combined = [cpAdditionalNotes, notes].filter(Boolean).join("\n\n");
+      const { data, error } = await cloudSupabase.functions.invoke("extract-questionnaire", {
+        body: { text: combined },
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      const f = ((data as any)?.fields ?? {}) as Record<string, any>;
+      let filled = 0;
+      if (f.financial && typeof f.financial === "object") {
+        setFinancial((prev) => {
+          const next = { ...prev };
+          for (const [k, v] of Object.entries(f.financial as Record<string, unknown>)) {
+            if (v == null) continue;
+            const s = String(v).trim();
+            if (!s) continue;
+            if (!next[k] || !String(next[k]).trim()) {
+              next[k] = s;
+              filled++;
+            }
+          }
+          return next;
+        });
+      }
+      toast.success(`Pulled ${filled} value${filled === 1 ? "" : "s"} from notes into fields. Review and Save.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not parse notes");
+    } finally {
+      setParsingNotes(false);
+    }
+  };
+
+
 
 
 
@@ -733,7 +851,19 @@ export default function ContactDetail() {
               </Select>
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="cp_notes">Additional notes</Label>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Label htmlFor="cp_notes">Additional notes</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={onParseNotesIntoFields}
+                  disabled={parsingNotes}
+                >
+                  {parsingNotes ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileScan className="h-4 w-4" />}
+                  Pull values from notes into fields below
+                </Button>
+              </div>
               <Textarea
                 id="cp_notes"
                 rows={5}
@@ -744,6 +874,58 @@ export default function ContactDetail() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader><CardTitle className="text-base">Financial & Family Profile</CardTitle></CardHeader>
+          <CardContent className="space-y-6">
+            <PairGrid
+              title="Employment & Retirement"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[
+                { key: "employment", label: "Employment (Working/Retired)" },
+                { key: "working_income", label: "Working income ($/yr)" },
+                { key: "pension_income", label: "Pension income ($/yr)" },
+                { key: "social_security", label: "Social Security ($/mo)" },
+                { key: "desired_retirement_age", label: "Desired retirement age" },
+              ]}
+            />
+            <PairGrid
+              title="Assets"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[
+                { key: "ira", label: "IRA ($)" },
+                { key: "ira_roth", label: "IRA Roth ($)" },
+                { key: "k401", label: "401(k) ($)" },
+                { key: "savings", label: "Savings / cash ($)" },
+                { key: "investments", label: "Investments ($)" },
+              ]}
+            />
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Real Estate</h4>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <FinField k="real_estate_value" label="Value ($)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="mortgage_balance" label="Mortgage balance ($)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="mortgage_payment" label="Mortgage payment ($/mo)" financial={financial} setFinancial={setFinancial} />
+              </div>
+            </div>
+            <PairGrid
+              title="Health"
+              financial={financial}
+              setFinancial={setFinancial}
+              rows={[{ key: "health", label: "Health (Good/Fair/Poor)" }]}
+            />
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Parents</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FinField k="parents_primary" label="Primary's parents (e.g. Mother 85 D, Father 85 D)" financial={financial} setFinancial={setFinancial} />
+                <FinField k="parents_spouse" label="Spouse's parents" financial={financial} setFinancial={setFinancial} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
 
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader>
