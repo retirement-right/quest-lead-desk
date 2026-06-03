@@ -83,13 +83,16 @@ export default function ContactDetail() {
 
   const loadDocs = async () => {
     if (!id) return;
-    const { data, error } = await cloudSupabase
-      .from("lead_documents" as any)
-      .select("*")
-      .eq("lead_id", id)
-      .order("uploaded_at", { ascending: false });
-    if (error) toast.error(error.message);
-    else setDocs((data ?? []) as unknown as LeadDocument[]);
+    const headers = await staffAuthHeaders();
+    if (!headers) return;
+    const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+      method: "GET",
+      headers,
+      body: undefined,
+      queryParams: { leadId: id } as any,
+    } as any);
+    if (error || (data as any)?.error) toast.error(error?.message || (data as any).error);
+    else setDocs(((data as any)?.documents ?? []) as LeadDocument[]);
   };
 
   const loadActivity = async () => {
@@ -301,28 +304,24 @@ export default function ContactDetail() {
   const onUpload = async (file: File) => {
     if (!id) return;
     setUploading(true);
-    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-    const path = `${id}/${Date.now()}-${safeName}`;
-    const { error: upErr } = await cloudSupabase.storage.from(BUCKET).upload(path, file);
-    if (upErr) {
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const form = new FormData();
+      form.append("leadId", id);
+      form.append("file", file, file.name);
+      const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+        body: form,
+        headers,
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      toast.success("File uploaded");
+      await loadDocs();
+    } catch (e: any) {
+      toast.error(e?.message || "Upload failed");
+    } finally {
       setUploading(false);
-      toast.error(upErr.message);
-      return;
     }
-    const { data: { user } } = await cloudSupabase.auth.getUser();
-    const { error: insErr } = await cloudSupabase.from("lead_documents" as any).insert({
-      lead_id: id,
-      file_name: file.name,
-      file_path: path,
-      uploaded_by: user?.id ?? null,
-    });
-    setUploading(false);
-    if (insErr) {
-      toast.error(insErr.message);
-      return;
-    }
-    toast.success("File uploaded");
-    await loadDocs();
   };
 
   const onDownload = async (doc: LeadDocument) => {
