@@ -16,8 +16,6 @@ import { ArrowLeft, CalendarIcon, Download, Loader2, Mail, MessageSquare, Save, 
 import { toast } from "sonner";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 
-const BUCKET = "lead-documents";
-
 const toLocalInput = (iso: string | null) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -86,11 +84,9 @@ export default function ContactDetail() {
     const headers = await staffAuthHeaders();
     if (!headers) return;
     const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
-      method: "GET",
       headers,
-      body: undefined,
-      queryParams: { leadId: id } as any,
-    } as any);
+      body: { leadId: id },
+    });
     if (error || (data as any)?.error) toast.error(error?.message || (data as any).error);
     else setDocs(((data as any)?.documents ?? []) as LeadDocument[]);
   };
@@ -325,14 +321,18 @@ export default function ContactDetail() {
   };
 
   const onDownload = async (doc: LeadDocument) => {
-    const { data, error } = await cloudSupabase.storage
-      .from(BUCKET)
-      .createSignedUrl(doc.file_path, 60);
-    if (error || !data) {
-      toast.error(error?.message || "Could not get download URL");
+    const headers = await staffAuthHeaders();
+    if (!headers) return;
+    const { data, error } = await cloudSupabase.functions.invoke("lead-documents", {
+      body: { action: "signed-url", id: doc.id },
+      headers,
+    });
+    const signedUrl = (data as any)?.signedUrl;
+    if (error || !signedUrl) {
+      toast.error(error?.message || (data as any)?.error || "Could not get download URL");
       return;
     }
-    window.open(data.signedUrl, "_blank", "noopener");
+    window.open(signedUrl, "_blank", "noopener");
   };
 
   if (loading) {
