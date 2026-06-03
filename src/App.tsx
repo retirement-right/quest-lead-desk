@@ -13,6 +13,7 @@ import Appointments from "./pages/Appointments";
 import FailedSyncs from "./pages/FailedSyncs";
 import Birthdays from "./pages/Birthdays";
 import NotFound from "./pages/NotFound.tsx";
+import BulkCrmUpload from "./pages/BulkCrmUpload";
 
 
 const queryClient = new QueryClient();
