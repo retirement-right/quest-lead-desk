@@ -2,8 +2,14 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Bell, Cake, Calendar, LogOut, Users } from "lucide-react";
+import { AlertTriangle, Bell, Cake, Calendar, ChevronDown, LogOut, Upload, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { supabase, Lead } from "@/lib/supabase";
 import { format, startOfDay, endOfDay, isBefore } from "date-fns";
@@ -135,6 +141,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <Cake className="h-4 w-4" /> Birthdays
               </Button>
             </Link>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  Admin <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/admin/bulk-crm-upload" className="flex items-center gap-2 cursor-pointer">
+                    <Upload className="h-4 w-4" /> Bulk CRM Upload
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Popover>
               <PopoverTrigger asChild>
