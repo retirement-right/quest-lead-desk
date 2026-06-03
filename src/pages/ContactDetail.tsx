@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { supabase, Lead, LeadDocument, STATUS_OPTIONS, stageToLabel, labelToStage, NET_WORTH_OPTIONS, PRIMARY_CONCERN_OPTIONS, effectiveLifecycleStage, isAttendedLead } from "@/lib/supabase";
