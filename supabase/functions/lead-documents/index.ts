@@ -34,6 +34,22 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === "POST") {
+      const contentType = req.headers.get("content-type") ?? "";
+      if (!contentType.includes("multipart/form-data")) {
+        const body = await req.json().catch(() => ({}));
+        const leadId = String(body.leadId ?? "").trim();
+        if (!leadId) return jsonResponse({ error: "leadId is required" }, 400);
+
+        const { data, error } = await admin
+          .from("lead_documents")
+          .select("*")
+          .eq("lead_id", leadId)
+          .order("uploaded_at", { ascending: false });
+
+        if (error) throw error;
+        return jsonResponse({ documents: data ?? [] });
+      }
+
       const form = await req.formData();
       const leadId = String(form.get("leadId") ?? "").trim();
       const file = form.get("file");
