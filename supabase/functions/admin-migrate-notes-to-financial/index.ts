@@ -1,8 +1,11 @@
-// Admin bulk migration: scan leadjig_leads whose notes contain
-// retirement-questionnaire-style data, extract structured financial
-// fields with AI, merge into client_profile.financial, and strip the
-// extracted lines from notes.
-// Requires staff auth to invoke.
+// Admin bulk migration: scan leadjig_leads whose notes or
+// client_profile.additional_notes contain retirement-questionnaire
+// data, extract structured financial fields with AI, merge into
+// client_profile.financial, and strip the extracted lines.
+//
+// Paginated: caller passes { offset, batch_size } and loops until
+// next_offset is null. Each call is bounded so it stays under the
+// edge-runtime idle timeout.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { jsonResponse, requireStaffAuth } from "../_shared/followup-auth.ts";
@@ -13,6 +16,7 @@ const LEADJIG_ANON_KEY =
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-2.5-flash";
+const AI_CONCURRENCY = 5;
 
 const FIN_KEYS = [
   "employment_primary","employment_spouse",
@@ -43,14 +47,8 @@ const SCHEMA = {
       properties: financialProps,
       required: FIN_KEYS,
     },
-    cleaned_notes: {
-      type: ["string","null"],
-      description: "The original Main Notes with all retirement-questionnaire lines removed. Preserve unrelated notes verbatim. If nothing remains, return null.",
-    },
-    cleaned_additional_notes: {
-      type: ["string","null"],
-      description: "The original Additional Notes with all retirement-questionnaire lines removed. Preserve unrelated notes verbatim. If nothing remains, return null.",
-    },
+    cleaned_notes: { type: ["string","null"] },
+    cleaned_additional_notes: { type: ["string","null"] },
   },
   required: ["financial","cleaned_notes","cleaned_additional_notes"],
 };
@@ -60,7 +58,6 @@ Extract structured 'financial' fields whenever a value is present (money as shor
 Also return cleaned_notes and cleaned_additional_notes with every line you extracted removed from the matching source section, preserving unrelated commentary verbatim.
 Return null for missing fields. Do not invent data.`;
 
-// Heuristic regex to find candidates without hitting AI for every row.
 const TRIGGER = /(working income|pension income|social security|401\s*\(?k\)?|ira\b|real estate value|mortgage payment|spouse health|primary health|desired retirement age|ages of (primary|spouse)'?s parents|savings or cash on hand|investments?:|net worth)/i;
 
 async function extract(notes: string, additionalNotes: string) {
@@ -88,6 +85,18 @@ async function extract(notes: string, additionalNotes: string) {
   return typeof c === "string" ? JSON.parse(c) : c;
 }
 
+async function runWithConcurrency<T>(items: T[], n: number, fn: (item: T) => Promise<void>) {
+  let i = 0;
+  const workers = Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -100,7 +109,8 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as any));
     const dryRun = !!body.dry_run;
-    const limit = Math.min(Math.max(Number(body.limit) || 1000, 1), 5000);
+    const offset = Math.max(Number(body.offset) || 0, 0);
+    const batchSize = Math.min(Math.max(Number(body.batch_size) || 100, 1), 500);
     const onlyId: string | undefined = body.lead_id;
 
     const leadjig = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
@@ -108,70 +118,79 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-  let query = leadjig
-    .from("leadjig_leads")
-    .select("id, name, email, notes, client_profile")
-    .limit(limit);
-  if (onlyId) query = query.eq("id", onlyId);
+    let query = leadjig
+      .from("leadjig_leads")
+      .select("id, name, email, notes, client_profile")
+      .order("id", { ascending: true })
+      .range(offset, offset + batchSize - 1);
+    if (onlyId) query = query.eq("id", onlyId);
 
-  const { data: rows, error } = await query;
-  if (error) return jsonResponse({ error: error.message }, 500);
+    const { data: rows, error } = await query;
+    if (error) return jsonResponse({ error: error.message }, 500);
 
-  const results: any[] = [];
-  let scanned = 0, matched = 0, updated = 0, failed = 0;
+    const results: any[] = [];
+    let scanned = 0, matched = 0, updated = 0, failed = 0;
 
-  for (const row of rows ?? []) {
-    scanned++;
-    const notes = (row.notes ?? "") as string;
-    const prevCp = (row.client_profile ?? {}) as Record<string, any>;
-    const additionalNotes = String(prevCp.additional_notes ?? "");
-    const sourceText = [notes, additionalNotes].filter(Boolean).join("\n\n");
-    if (!sourceText || !TRIGGER.test(sourceText)) continue;
-    matched++;
-    try {
-      const out = await extract(notes, additionalNotes);
-      const fin = (out.financial ?? {}) as Record<string, string | null>;
-      const cleaned = (out.cleaned_notes ?? "") as string | null;
-      const cleanedAdditional = (out.cleaned_additional_notes ?? "") as string | null;
-
-      const prevFin = (prevCp.financial && typeof prevCp.financial === "object") ? prevCp.financial : {};
-      const mergedFin = { ...prevFin };
-      let filled = 0;
-      for (const [k, v] of Object.entries(fin)) {
-        if (v == null) continue;
-        const s = String(v).trim();
-        if (!s) continue;
-        if (!mergedFin[k] || !String(mergedFin[k]).trim()) {
-          mergedFin[k] = s;
-          filled++;
-        }
-      }
-
-      const patch = {
-        notes: cleaned && cleaned.trim() ? cleaned.trim() : null,
-        client_profile: {
-          ...prevCp,
-          additional_notes: cleanedAdditional && cleanedAdditional.trim() ? cleanedAdditional.trim() : null,
-          financial: mergedFin,
-        },
-      };
-
-      if (!dryRun) {
-        const { error: uErr } = await leadjig
-          .from("leadjig_leads")
-          .update(patch)
-          .eq("id", row.id);
-        if (uErr) throw new Error(uErr.message);
-      }
-      updated++;
-      results.push({ id: row.id, name: row.name, email: row.email, filled, cleaned_len: (cleaned ?? "").length, cleaned_additional_len: (cleanedAdditional ?? "").length });
-    } catch (e) {
-      failed++;
-      results.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
+    const candidates: Array<{ row: any; notes: string; additionalNotes: string; prevCp: Record<string, any> }> = [];
+    for (const row of rows ?? []) {
+      scanned++;
+      const notes = (row.notes ?? "") as string;
+      const prevCp = (row.client_profile ?? {}) as Record<string, any>;
+      const additionalNotes = String(prevCp.additional_notes ?? "");
+      const sourceText = [notes, additionalNotes].filter(Boolean).join("\n\n");
+      if (!sourceText || !TRIGGER.test(sourceText)) continue;
+      matched++;
+      candidates.push({ row, notes, additionalNotes, prevCp });
     }
-  }
 
-    return jsonResponse({ ok: true, dry_run: dryRun, scanned, matched, updated, failed, results });
+    await runWithConcurrency(candidates, AI_CONCURRENCY, async ({ row, notes, additionalNotes, prevCp }) => {
+      try {
+        const out = await extract(notes, additionalNotes);
+        const fin = (out.financial ?? {}) as Record<string, string | null>;
+        const cleaned = (out.cleaned_notes ?? "") as string | null;
+        const cleanedAdditional = (out.cleaned_additional_notes ?? "") as string | null;
+
+        const prevFin = (prevCp.financial && typeof prevCp.financial === "object") ? prevCp.financial : {};
+        const mergedFin = { ...prevFin };
+        let filled = 0;
+        for (const [k, v] of Object.entries(fin)) {
+          if (v == null) continue;
+          const s = String(v).trim();
+          if (!s) continue;
+          if (!mergedFin[k] || !String(mergedFin[k]).trim()) {
+            mergedFin[k] = s;
+            filled++;
+          }
+        }
+
+        const patch = {
+          notes: cleaned && cleaned.trim() ? cleaned.trim() : null,
+          client_profile: {
+            ...prevCp,
+            additional_notes: cleanedAdditional && cleanedAdditional.trim() ? cleanedAdditional.trim() : null,
+            financial: mergedFin,
+          },
+        };
+
+        if (!dryRun) {
+          const { error: uErr } = await leadjig
+            .from("leadjig_leads")
+            .update(patch)
+            .eq("id", row.id);
+          if (uErr) throw new Error(uErr.message);
+        }
+        updated++;
+        results.push({ id: row.id, name: row.name, email: row.email, filled, cleaned_len: (cleaned ?? "").length, cleaned_additional_len: (cleanedAdditional ?? "").length });
+      } catch (e) {
+        failed++;
+        results.push({ id: row.id, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+
+    const hasMore = !onlyId && (rows?.length ?? 0) === batchSize;
+    const nextOffset = hasMore ? offset + batchSize : null;
+
+    return jsonResponse({ ok: true, dry_run: dryRun, offset, batch_size: batchSize, scanned, matched, updated, failed, next_offset: nextOffset, results });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Migration failed";
     console.error("admin-migrate-notes-to-financial error:", message);
