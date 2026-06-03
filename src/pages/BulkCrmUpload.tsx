@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import JSZip from "jszip";
-
+import { supabase } from "@/lib/supabase";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,27 +74,67 @@ export default function BulkCrmUpload() {
         files.push({ filename: fname, last, first, blob });
       }
       toast.success(`Extracted ${files.length} CRM files`);
-      const blobByName = new Map(files.map((f) => [f.filename, f.blob]));
 
-      toast.info("Matching contacts via service…");
-      const queries = files.map((f) => ({ filename: f.filename, last: f.last, first: f.first }));
-      const { data, error } = await cloudSupabase.functions.invoke("crm-match-report", { body: { queries } });
-      if (error) throw new Error(error.message || "Match service failed");
-      if (data?.error) throw new Error(data.error);
+      // Fetch all leads using the logged-in user's session (same as ContactDetail does)
+      toast.info("Loading contacts…");
+      const allLeads: { id: string; full: string; first: string; last: string; email?: string | null }[] = [];
+      const PAGE = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("leadjig_leads")
+          .select("id, name, guest_name, email")
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`Contacts query failed: ${error.message}`);
+        if (!data || data.length === 0) break;
+        for (const l of data as any[]) {
+          const full: string = (l.name || l.guest_name || "").trim();
+          let firstStr = "", lastStr = "";
+          if (full.includes(",")) {
+            const [lp, rp] = full.split(",");
+            lastStr = (lp || "").trim();
+            firstStr = (rp || "").trim().split(/\s+/)[0] ?? "";
+          } else {
+            const parts = full.split(/\s+/).filter(Boolean);
+            firstStr = parts[0] ?? "";
+            lastStr = parts.length > 1 ? parts[parts.length - 1] : "";
+          }
+          allLeads.push({ id: l.id, full, first: norm(firstStr), last: norm(lastStr), email: l.email });
+        }
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
+      toast.success(`Loaded ${allLeads.length} contacts`);
+      setPoolSize(allLeads.length);
 
-      const m: Matched[] = (data.matched ?? []).map((x: any) => ({
-        filename: x.filename,
-        lead_id: x.lead_id,
-        name: x.name,
-        email: x.email,
-        blob: blobByName.get(x.filename)!,
-      }));
+      const m: Matched[] = [];
+      const a: Ambiguous[] = [];
+      const u: Unmatched[] = [];
+      for (const p of files) {
+        const qL = norm(p.last);
+        const qF = norm(p.first);
+        const lastHits = allLeads.filter((l) => l.last === qL);
+        let firstHits = lastHits.filter((l) => l.first === qF);
+        if (firstHits.length === 0 && qF) {
+          firstHits = lastHits.filter((l) => l.first && (l.first.startsWith(qF) || qF.startsWith(l.first)));
+        }
+        if (firstHits.length === 1) {
+          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob });
+        } else if (firstHits.length > 1) {
+          a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
+        } else if (lastHits.length === 1) {
+          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob });
+        } else if (lastHits.length > 1) {
+          a.push({ filename: p.filename, candidates: lastHits.map((l) => ({ id: l.id, name: l.full, email: l.email })), note: "last-name only" });
+        } else {
+          u.push({ filename: p.filename, last: p.last, first: p.first });
+        }
+      }
       setMatched(m);
-      setAmbiguous(data.ambiguous ?? []);
-      setUnmatched(data.unmatched ?? []);
-      setPoolSize(data.lead_pool_size ?? null);
+      setAmbiguous(a);
+      setUnmatched(u);
       setReportReady(true);
-      toast.success(`Matched ${m.length} of ${files.length} (pool: ${data.lead_pool_size})`);
+      toast.success(`Matched ${m.length} of ${files.length}`);
     } catch (e: any) {
       console.error("Bulk CRM upload error:", e);
       toast.error(e?.message || "Failed to parse zip / match contacts");
