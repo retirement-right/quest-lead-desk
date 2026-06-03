@@ -146,9 +146,14 @@ export default function BulkCrmUpload() {
 
   const confirmUpload = async () => {
     if (!matched.length) return;
+    const { data: { session } } = await cloudSupabase.auth.getSession();
+    if (!session?.user) {
+      toast.error("You're not signed in to the CRM. Please log in and try again.");
+      return;
+    }
     if (!confirm(`Upload ${matched.length} files to their matched contacts?`)) return;
     setUploading(true);
-    const { data: { user } } = await cloudSupabase.auth.getUser();
+    const user = session.user;
     const failures: { filename: string; error: string }[] = [];
     setProgress({ done: 0, total: matched.length, failures: [] });
     for (let i = 0; i < matched.length; i++) {
