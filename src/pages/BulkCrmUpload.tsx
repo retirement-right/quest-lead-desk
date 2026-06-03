@@ -19,10 +19,20 @@ type ExtractedFields = {
   address?: string | null;
   cityStateZip?: string | null;
   dob?: string | null;
+  spouseDob?: string | null;
+  retirementDate?: string | null;
+  netWorth?: string | null;
+  primaryConcern?: string | null;
+  additionalNotes?: string | null;
+  numChildren?: string | null;
+  occupation?: string | null;
+  employer?: string | null;
+  seminarLocation?: string | null;
+  allKv?: Record<string, string>;
 };
 
 type ParsedFile = { filename: string; last: string; first: string; blob: Blob; fields: ExtractedFields };
-type Matched = { filename: string; lead_id: string; name: string; email?: string | null; blob: Blob };
+type Matched = { filename: string; lead_id: string; name: string; email?: string | null; blob: Blob; fields: ExtractedFields };
 type Ambiguous = { filename: string; candidates: { id: string; name: string; email?: string | null }[]; note?: string };
 type Unmatched = { filename: string; last: string; first: string; blob: Blob; fields: ExtractedFields };
 
