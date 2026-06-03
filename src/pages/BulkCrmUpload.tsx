@@ -109,9 +109,14 @@ export default function BulkCrmUpload() {
       toast.success(`Extracted ${files.length} CRM files`);
 
       toast.info("Loading contacts…");
-      const allLeads = await fetchAllLeads();
-      setLeads(allLeads);
-      toast.success(`Loaded ${allLeads.length} contacts`);
+      let allLeads: Lead[] = [];
+      try {
+        allLeads = await fetchAllLeads();
+        setLeads(allLeads);
+        toast.success(`Loaded ${allLeads.length} contacts`);
+      } catch (err: any) {
+        toast.error(`Could not load contacts: ${err?.message ?? err}`);
+      }
 
       // Match
       const m: Matched[] = [];
