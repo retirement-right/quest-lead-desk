@@ -40,41 +40,7 @@ function parseFilename(name: string): { last: string; first: string } {
   return { last, first: firstToken };
 }
 
-async function fetchAllLeads(): Promise<Lead[]> {
-  const all: any[] = [];
-  const PAGE = 1000;
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("leadjig_leads" as any)
-      .select("id, name, guest_name, email")
-      .range(from, from + PAGE - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    all.push(...data);
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  return all.map((l: any) => {
-    const full: string = (l.name || l.guest_name || "").trim();
-    let firstStr = "";
-    let lastStr = "";
-    if (full.includes(",")) {
-      const [lp, rp] = full.split(",");
-      lastStr = (lp || "").trim();
-      firstStr = (rp || "").trim().split(/\s+/)[0] ?? "";
-    } else {
-      const parts = full.split(/\s+/).filter(Boolean);
-      firstStr = parts[0] ?? "";
-      lastStr = parts.length > 1 ? parts[parts.length - 1] : "";
-    }
-    return { id: l.id, full, first: norm(firstStr), last: norm(lastStr), email: l.email };
-  });
-}
-
 export default function BulkCrmUpload() {
-  const [parsed, setParsed] = useState<ParsedFile[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [matched, setMatched] = useState<Matched[]>([]);
   const [ambiguous, setAmbiguous] = useState<Ambiguous[]>([]);
   const [unmatched, setUnmatched] = useState<Unmatched[]>([]);
@@ -86,6 +52,7 @@ export default function BulkCrmUpload() {
     failures: [],
   });
   const [reportReady, setReportReady] = useState(false);
+  const [poolSize, setPoolSize] = useState<number | null>(null);
 
   const onZipSelected = async (file: File) => {
     setLoading(true);
@@ -93,6 +60,7 @@ export default function BulkCrmUpload() {
     setMatched([]);
     setAmbiguous([]);
     setUnmatched([]);
+    setPoolSize(null);
     try {
       const zip = await JSZip.loadAsync(file);
       const files: ParsedFile[] = [];
@@ -105,49 +73,32 @@ export default function BulkCrmUpload() {
         const { last, first } = parseFilename(fname);
         files.push({ filename: fname, last, first, blob });
       }
-      setParsed(files);
       toast.success(`Extracted ${files.length} CRM files`);
+      const blobByName = new Map(files.map((f) => [f.filename, f.blob]));
 
-      toast.info("Loading contacts…");
-      let allLeads: Lead[] = [];
-      try {
-        allLeads = await fetchAllLeads();
-        setLeads(allLeads);
-        toast.success(`Loaded ${allLeads.length} contacts`);
-      } catch (err: any) {
-        toast.error(`Could not load contacts: ${err?.message ?? err}`);
-      }
+      toast.info("Matching contacts via service…");
+      const queries = files.map((f) => ({ filename: f.filename, last: f.last, first: f.first }));
+      const { data, error } = await cloudSupabase.functions.invoke("crm-match-report", { body: { queries } });
+      if (error) throw new Error(error.message || "Match service failed");
+      if (data?.error) throw new Error(data.error);
 
-      // Match
-      const m: Matched[] = [];
-      const a: Ambiguous[] = [];
-      const u: Unmatched[] = [];
-      for (const p of files) {
-        const qL = norm(p.last);
-        const qF = norm(p.first);
-        const lastHits = allLeads.filter((l) => l.last === qL);
-        let firstHits = lastHits.filter((l) => l.first === qF);
-        if (firstHits.length === 0 && qF) {
-          firstHits = lastHits.filter((l) => l.first && (l.first.startsWith(qF) || qF.startsWith(l.first)));
-        }
-        if (firstHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob });
-        } else if (firstHits.length > 1) {
-          a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
-        } else if (lastHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob });
-        } else if (lastHits.length > 1) {
-          a.push({ filename: p.filename, candidates: lastHits.map((l) => ({ id: l.id, name: l.full, email: l.email })), note: "last-name only" });
-        } else {
-          u.push({ filename: p.filename, last: p.last, first: p.first });
-        }
-      }
+      const m: Matched[] = (data.matched ?? []).map((x: any) => ({
+        filename: x.filename,
+        lead_id: x.lead_id,
+        name: x.name,
+        email: x.email,
+        blob: blobByName.get(x.filename)!,
+      }));
       setMatched(m);
-      setAmbiguous(a);
-      setUnmatched(u);
+      setAmbiguous(data.ambiguous ?? []);
+      setUnmatched(data.unmatched ?? []);
+      setPoolSize(data.lead_pool_size ?? null);
       setReportReady(true);
+      toast.success(`Matched ${m.length} of ${files.length} (pool: ${data.lead_pool_size})`);
     } catch (e: any) {
-      toast.error(e?.message || "Failed to parse zip");
+      console.error("Bulk CRM upload error:", e);
+      toast.error(e?.message || "Failed to parse zip / match contacts");
+      setReportReady(true);
     } finally {
       setLoading(false);
     }
