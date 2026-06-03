@@ -19,10 +19,20 @@ type ExtractedFields = {
   address?: string | null;
   cityStateZip?: string | null;
   dob?: string | null;
+  spouseDob?: string | null;
+  retirementDate?: string | null;
+  netWorth?: string | null;
+  primaryConcern?: string | null;
+  additionalNotes?: string | null;
+  numChildren?: string | null;
+  occupation?: string | null;
+  employer?: string | null;
+  seminarLocation?: string | null;
+  allKv?: Record<string, string>;
 };
 
 type ParsedFile = { filename: string; last: string; first: string; blob: Blob; fields: ExtractedFields };
-type Matched = { filename: string; lead_id: string; name: string; email?: string | null; blob: Blob };
+type Matched = { filename: string; lead_id: string; name: string; email?: string | null; blob: Blob; fields: ExtractedFields };
 type Ambiguous = { filename: string; candidates: { id: string; name: string; email?: string | null }[]; note?: string };
 type Unmatched = { filename: string; last: string; first: string; blob: Blob; fields: ExtractedFields };
 
@@ -96,6 +106,8 @@ async function extractFieldsFromXlsx(blob: Blob, fallback: { first: string; last
     const primaryName = get("primaryname", "name", "clientname");
     const spouseName = get("spousename", "spouse");
     const { first, last } = splitName(primaryName);
+    const allKv: Record<string, string> = {};
+    kv.forEach((v, k) => { allKv[k] = v; });
 
     return {
       primaryName,
@@ -107,11 +119,102 @@ async function extractFieldsFromXlsx(blob: Blob, fallback: { first: string; last
       address: get("address", "streetaddress"),
       cityStateZip: get("citystatezip", "citystate", "city"),
       dob: get("primarydob", "dob", "dateofbirth", "birthdate"),
+      spouseDob: get("spousedob", "spousedateofbirth", "spousebirthdate", "spousebirthday"),
+      retirementDate: get("retirementdate", "targetretirementdate", "retirement", "retireby"),
+      netWorth: get("networth", "totalnetworth", "estimatednetworth", "assets", "totalassets"),
+      primaryConcern: get("primaryconcern", "topconcern", "topconcerns", "concern", "concerns", "biggestconcern"),
+      additionalNotes: get("additionalnotes", "notes", "comments", "additionalcomments", "advisornotes"),
+      numChildren: get("numchildren", "numberofchildren", "children", "kids", "ofchildren"),
+      occupation: get("occupation", "primaryoccupation", "job", "jobtitle", "title"),
+      employer: get("employer", "primaryemployer", "company"),
+      seminarLocation: get("seminarlocation", "eventlocation", "location", "venue"),
+      allKv,
     };
   } catch (e) {
     console.warn("xlsx parse failed", e);
     return { firstName: fallback.first || null, lastName: fallback.last || null };
   }
+}
+
+function toIsoDate(s?: string | null): string | null {
+  if (!s) return null;
+  const str = String(s).trim();
+  if (!str) return null;
+  // YYYY-MM-DD already
+  const iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  // M/D/YYYY or M-D-YYYY
+  const us = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (us) {
+    let [, mo, d, y] = us;
+    if (y.length === 2) y = (Number(y) > 30 ? "19" : "20") + y;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  const t = Date.parse(str);
+  if (!isNaN(t)) {
+    const dt = new Date(t);
+    const y = dt.getUTCFullYear();
+    const mo = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(dt.getUTCDate()).padStart(2, "0");
+    return `${y}-${mo}-${d}`;
+  }
+  return null;
+}
+
+function toNumber(s?: string | null): number | null {
+  if (!s) return null;
+  const n = Number(String(s).replace(/[^0-9.\-]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+const isBlank = (v: any) =>
+  v == null || v === "" || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0);
+
+function buildClientProfilePatch(f: ExtractedFields, existing: Record<string, any>) {
+  const patch: Record<string, any> = { ...existing };
+  let changed = false;
+  const set = (k: string, v: any) => {
+    if (v == null || v === "") return;
+    if (isBlank(existing[k])) { patch[k] = v; changed = true; }
+  };
+  set("spouse_name", f.spouseName ?? null);
+  set("spouse_birthdate", toIsoDate(f.spouseDob));
+  set("retirement_date", toIsoDate(f.retirementDate));
+  set("net_worth", f.netWorth ?? null);
+  set("primary_concern", f.primaryConcern ?? null);
+  set("additional_notes", f.additionalNotes ?? null);
+  set("num_children", toNumber(f.numChildren));
+  set("occupation", f.occupation ?? null);
+  set("employer", f.employer ?? null);
+  set("seminar_location", f.seminarLocation ?? null);
+  return { patch, changed };
+}
+
+function buildLeadPatch(f: ExtractedFields, lead: Record<string, any>) {
+  const patch: Record<string, any> = {};
+  if (isBlank(lead.email) && f.email) patch.email = f.email;
+  if (isBlank(lead.phone) && f.phone) patch.phone = f.phone;
+  if (isBlank(lead.address)) {
+    const addr = [f.address, f.cityStateZip].filter(Boolean).join(", ");
+    if (addr) patch.address = addr;
+  }
+  if (isBlank(lead.date_of_birth) && f.dob) {
+    const d = toIsoDate(f.dob);
+    if (d) patch.date_of_birth = d;
+  }
+  const rp = (lead.raw_payload ?? {}) as Record<string, any>;
+  const mergedRaw = { ...rp };
+  let rpChanged = false;
+  if (isBlank(rp.first_name) && f.firstName) { mergedRaw.first_name = f.firstName; rpChanged = true; }
+  if (isBlank(rp.last_name) && f.lastName) { mergedRaw.last_name = f.lastName; rpChanged = true; }
+  if (isBlank(rp.crm_extracted) && f.allKv && Object.keys(f.allKv).length) {
+    mergedRaw.crm_extracted = f.allKv; rpChanged = true;
+  }
+  if (rpChanged) patch.raw_payload = mergedRaw;
+  const cp = (lead.client_profile ?? {}) as Record<string, any>;
+  const { patch: cpPatch, changed: cpChanged } = buildClientProfilePatch(f, cp);
+  if (cpChanged) patch.client_profile = cpPatch;
+  return patch;
 }
 
 export default function BulkCrmUpload() {
@@ -186,11 +289,11 @@ export default function BulkCrmUpload() {
           firstHits = lastHits.filter((l) => l.first && (l.first.startsWith(qF) || qF.startsWith(l.first)));
         }
         if (firstHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob });
+          m.push({ filename: p.filename, lead_id: firstHits[0].id, name: firstHits[0].full, email: firstHits[0].email, blob: p.blob, fields: p.fields });
         } else if (firstHits.length > 1) {
           a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
         } else if (lastHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob });
+          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob, fields: p.fields });
         } else if (lastHits.length > 1) {
           a.push({ filename: p.filename, candidates: lastHits.map((l) => ({ id: l.id, name: l.full, email: l.email })), note: "last-name only" });
         } else {
@@ -245,12 +348,33 @@ export default function BulkCrmUpload() {
     const token = session.access_token;
     const failures: { filename: string; error: string }[] = [];
     let created = 0;
+    let enriched = 0;
     setProgress({ done: 0, total, failures: [], created: 0 });
 
     let i = 0;
     for (const m of matched) {
       try {
         await uploadToLead(m.lead_id, m.filename, m.blob, token, i);
+        // Enrich existing contact with any new info from the Excel (only fills empty fields)
+        try {
+          const { data: existing } = await supabase
+            .from("leadjig_leads")
+            .select("email, phone, address, date_of_birth, raw_payload, client_profile")
+            .eq("id", m.lead_id)
+            .maybeSingle();
+          if (existing) {
+            const patch = buildLeadPatch(m.fields, existing as any);
+            if (Object.keys(patch).length > 0) {
+              const { error: upErr } = await supabase
+                .from("leadjig_leads")
+                .update(patch)
+                .eq("id", m.lead_id);
+              if (!upErr) enriched++;
+            }
+          }
+        } catch (e) {
+          console.warn("enrich failed", m.filename, e);
+        }
       } catch (e: any) {
         failures.push({ filename: m.filename, error: e?.message || String(e) });
       }
@@ -267,6 +391,7 @@ export default function BulkCrmUpload() {
             [f.firstName, f.lastName].filter(Boolean).join(" ") ||
             [u.first, u.last].filter(Boolean).join(" ") ||
             null;
+          const { patch: cpPatch } = buildClientProfilePatch(f, {});
           const payload: Record<string, any> = {
             name: combinedName,
             raw_payload: {
@@ -276,11 +401,13 @@ export default function BulkCrmUpload() {
               date_of_birth: f.dob || null,
               city_state_zip: f.cityStateZip || null,
               source: "bulk-crm-upload",
+              crm_extracted: f.allKv || null,
             },
             email: f.email || null,
             phone: f.phone || null,
             address: [f.address, f.cityStateZip].filter(Boolean).join(", ") || null,
-            date_of_birth: f.dob || null,
+            date_of_birth: toIsoDate(f.dob),
+            client_profile: Object.keys(cpPatch).length ? cpPatch : null,
           };
           const { data: newLead, error: insErr } = await supabase
             .from("leadjig_leads")
@@ -300,8 +427,8 @@ export default function BulkCrmUpload() {
 
     setUploading(false);
     const ok = total - failures.length;
-    if (failures.length === 0) toast.success(`Uploaded ${ok} files (created ${created} new contacts)`);
-    else toast.error(`Uploaded ${ok} / ${total} · ${created} new contacts · ${failures.length} failed`);
+    if (failures.length === 0) toast.success(`Uploaded ${ok} files · enriched ${enriched} existing · created ${created} new`);
+    else toast.error(`Uploaded ${ok} / ${total} · enriched ${enriched} · created ${created} · ${failures.length} failed`);
   };
 
   const csv = useMemo(() => {
