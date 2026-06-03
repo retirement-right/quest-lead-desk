@@ -480,12 +480,13 @@ export default function BulkCrmUpload() {
   const [migrateDryRun, setMigrateDryRun] = useState(true);
   const [migrateResult, setMigrateResult] = useState<any>(null);
   const [migrateError, setMigrateError] = useState<string | null>(null);
-  const canRunLiveMigration = !!migrateResult && migrateResult.dry_run && migrateResult.matched > 0 && migrateResult.failed === 0;
+  const hasDryRunResult = !!migrateResult && migrateResult.dry_run;
+  const canRunLiveMigration = hasDryRunResult && migrateResult.matched > 0;
   const [migrateOffset, setMigrateOffset] = useState<number | null>(null);
   const runMigrateNotes = async () => {
     if (!migrateDryRun && !canRunLiveMigration) {
       toast.error("Run a dry run with matching contacts before applying changes.");
-      setMigrateError("Live migration is locked until a dry run finds contacts and reports no failures.");
+      setMigrateError("Live migration is locked until a dry run finds contacts to update.");
       return;
     }
     if (!migrateDryRun && !confirm("Apply these note-to-financial-field updates now? This will change contact records.")) return;
@@ -550,7 +551,7 @@ export default function BulkCrmUpload() {
               <input type="checkbox" checked={migrateDryRun} onChange={(e) => setMigrateDryRun(e.target.checked)} />
               Dry run (preview only)
             </label>
-            <Button onClick={runMigrateNotes} disabled={migrating || (!migrateDryRun && !canRunLiveMigration)}>
+            <Button onClick={runMigrateNotes} disabled={migrating}>
               {migrating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {migrating && migrateOffset != null
                 ? `Scanning… (${migrateOffset} contacts)`
@@ -559,7 +560,7 @@ export default function BulkCrmUpload() {
           </div>
           {!migrateDryRun && !canRunLiveMigration && (
             <p className="text-xs text-muted-foreground">
-              Live migration is disabled until a dry run finds matching contacts and has no failures.
+              Live migration needs a completed dry run that found contacts to update.
             </p>
           )}
           {migrateError && (
