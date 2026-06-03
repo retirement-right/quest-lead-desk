@@ -455,6 +455,29 @@ export default function BulkCrmUpload() {
 
   const totalToProcess = matched.length + (createMissing ? unmatched.length : 0);
 
+  const [migrating, setMigrating] = useState(false);
+  const [migrateDryRun, setMigrateDryRun] = useState(true);
+  const [migrateResult, setMigrateResult] = useState<any>(null);
+  const runMigrateNotes = async () => {
+    setMigrating(true);
+    setMigrateResult(null);
+    try {
+      const { data: { session } } = await cloudSupabase.auth.getSession();
+      if (!session?.access_token) { toast.error("Not signed in"); return; }
+      const { data, error } = await cloudSupabase.functions.invoke("admin-migrate-notes-to-financial", {
+        body: { dry_run: migrateDryRun, limit: 500 },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any).error);
+      setMigrateResult(data);
+      toast.success(`${migrateDryRun ? "Preview" : "Migrated"}: matched ${data.matched}, updated ${data.updated}, failed ${data.failed}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Migration failed");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   return (
     <div className="container max-w-5xl py-8 space-y-6">
       <div>
@@ -463,6 +486,44 @@ export default function BulkCrmUpload() {
           Upload a zip of <code>LastName, First_CRM.xlsx</code> files. Matched files attach to existing contacts; unmatched files create a new contact (using name, email, phone, address, DOB, and spouse from the Excel content) and then attach.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Migrate notes → Financial fields</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Scan every contact whose notes contain retirement-questionnaire data (income, IRA, 401k, mortgage, parents' ages, etc.), move those values into the structured Financial & Family form fields, and remove them from the notes. Start with a dry run.
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={migrateDryRun} onChange={(e) => setMigrateDryRun(e.target.checked)} />
+              Dry run (preview only)
+            </label>
+            <Button onClick={runMigrateNotes} disabled={migrating}>
+              {migrating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {migrateDryRun ? "Preview migration" : "Run migration"}
+            </Button>
+          </div>
+          {migrateResult && (
+            <div className="text-xs bg-muted rounded p-3 max-h-72 overflow-auto">
+              <div className="font-medium mb-1">
+                scanned {migrateResult.scanned} · matched {migrateResult.matched} · updated {migrateResult.updated} · failed {migrateResult.failed}
+              </div>
+              <ul className="space-y-1">
+                {(migrateResult.results ?? []).map((r: any, i: number) => (
+                  <li key={i}>
+                    {r.error
+                      ? <span className="text-destructive">{r.id}: {r.error}</span>
+                      : <span>{r.name || r.email || r.id} — filled {r.filled} fields</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
