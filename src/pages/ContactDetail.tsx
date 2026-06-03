@@ -189,6 +189,7 @@ export default function ContactDetail() {
         primary_concern: cpPrimaryConcern || null,
         additional_notes: cpAdditionalNotes || null,
         seminar_location: cpSeminarLocation.trim() || null,
+        financial,
         followup_date: fuDate ? new Date(fuDate).toISOString() : null,
         followup_type: fuType || null,
         followup_notes: fuNotes || null,
