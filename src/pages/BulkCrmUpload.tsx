@@ -212,7 +212,7 @@ export default function BulkCrmUpload() {
         } else if (firstHits.length > 1) {
           a.push({ filename: p.filename, candidates: firstHits.map((l) => ({ id: l.id, name: l.full, email: l.email })) });
         } else if (lastHits.length === 1) {
-          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob });
+          m.push({ filename: p.filename, lead_id: lastHits[0].id, name: lastHits[0].full, email: lastHits[0].email, blob: p.blob, fields: p.fields });
         } else if (lastHits.length > 1) {
           a.push({ filename: p.filename, candidates: lastHits.map((l) => ({ id: l.id, name: l.full, email: l.email })), note: "last-name only" });
         } else {
