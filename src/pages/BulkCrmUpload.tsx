@@ -240,6 +240,8 @@ function buildLeadPatch(f: ExtractedFields, lead: Record<string, any>) {
 }
 
 export default function BulkCrmUpload() {
+  const navigate = useNavigate();
+  const [creatingNew, setCreatingNew] = useState(false);
   const [matched, setMatched] = useState<Matched[]>([]);
   const [ambiguous, setAmbiguous] = useState<Ambiguous[]>([]);
   const [unmatched, setUnmatched] = useState<Unmatched[]>([]);
