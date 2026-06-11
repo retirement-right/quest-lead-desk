@@ -532,13 +532,41 @@ export default function BulkCrmUpload() {
     }
   };
 
+  const createNewClient = async () => {
+    if (creatingNew) return;
+    setCreatingNew(true);
+    try {
+      const { data, error } = await supabase
+        .from("leadjig_leads")
+        .insert({
+          name: "New Client",
+          raw_payload: { source: "manual-new-client" },
+        })
+        .select("id")
+        .single();
+      if (error || !data) throw error || new Error("Insert failed");
+      toast.success("New client created");
+      navigate(`/contacts/${(data as any).id}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to create new client");
+    } finally {
+      setCreatingNew(false);
+    }
+  };
+
   return (
     <div className="container max-w-5xl py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Bulk CRM File Upload</h1>
-        <p className="text-sm text-muted-foreground">
-          Upload a zip of <code>LastName, First_CRM.xlsx</code> files. Matched files attach to existing contacts; unmatched files create a new contact (using name, email, phone, address, DOB, and spouse from the Excel content) and then attach.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Bulk CRM File Upload</h1>
+          <p className="text-sm text-muted-foreground">
+            Upload a zip of <code>LastName, First_CRM.xlsx</code> files. Matched files attach to existing contacts; unmatched files create a new contact (using name, email, phone, address, DOB, and spouse from the Excel content) and then attach.
+          </p>
+        </div>
+        <Button onClick={createNewClient} disabled={creatingNew} className="shrink-0">
+          {creatingNew ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+          New Client
+        </Button>
       </div>
 
       <Card>
