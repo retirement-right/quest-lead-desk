@@ -282,8 +282,10 @@ export default function Appointments() {
       if (isNaN(d.getTime())) return false;
       const ts = d.toISOString();
       if (bookedKeys.has(`${email}|${ts}`)) return false;
+      if (email && cancelledKeys.has(`${email}|${ts}`)) return false;
       if (email && bookedDayKeys.has(`${email}|${phxDayKey(d)}`)) return false;
       return true;
+
     }).map((l) => {
 
       const email = (l.email ?? "").trim().toLowerCase();
