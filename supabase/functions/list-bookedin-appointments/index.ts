@@ -23,26 +23,34 @@ Deno.serve(async (req) => {
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
   const appointments: unknown[] = [];
+  const cancellations: unknown[] = [];
   const chunkSize = 1000;
-  let from = 0;
 
-  while (true) {
-    const { data, error } = await cloud
-      .from("bookedin_appointments")
-      .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload, created_at")
-      .in("appointment_status", ["booked", "rescheduled"])
-      .order("created_at", { ascending: true })
-      .range(from, from + chunkSize - 1);
+  const fetchAll = async (statuses: string[], sink: unknown[]) => {
+    let from = 0;
+    while (true) {
+      const { data, error } = await cloud
+        .from("bookedin_appointments")
+        .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, raw_payload, created_at")
+        .in("appointment_status", statuses)
+        .order("created_at", { ascending: true })
+        .range(from, from + chunkSize - 1);
 
-    if (error) {
-      return jsonResponse({ error: error.message }, 500);
+      if (error) return error.message;
+
+      const batch = data ?? [];
+      sink.push(...batch);
+      if (batch.length < chunkSize) return null;
+      from += chunkSize;
     }
+  };
 
-    const batch = data ?? [];
-    appointments.push(...batch);
-    if (batch.length < chunkSize) break;
-    from += chunkSize;
-  }
+  const apptErr = await fetchAll(["booked", "rescheduled"], appointments);
+  if (apptErr) return jsonResponse({ error: apptErr }, 500);
 
-  return jsonResponse({ appointments });
+  const cancelErr = await fetchAll(["cancelled", "canceled"], cancellations);
+  if (cancelErr) return jsonResponse({ error: cancelErr }, 500);
+
+  return jsonResponse({ appointments, cancellations });
 });
+
