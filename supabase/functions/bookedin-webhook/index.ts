@@ -59,9 +59,51 @@ function isBenignCancelledError(status: AppointmentStatus, err: string): boolean
 function isProcessedOk(processError: string | null): boolean {
   if (!processError) return true;
   if (processError === "cancelled event with no contact name; not forwarded") return true;
+  if (processError.startsWith("cancelled event with no matching CRM appointment")) return true;
   if (processError.startsWith("skipped (cancelled, attendee update): ")) return true;
   return false;
 }
+
+// For cancellations: find the prior booked/rescheduled BookedIN appointment for
+// the same contact email so we can cancel THAT appointment instead of creating a
+// new contact/appointment. Prefers an exact appointment_date match, then the
+// closest appointment in time, then the most recent one.
+async function findPriorAppointment(
+  cloud: ReturnType<typeof createClient>,
+  email: string,
+  apptDateIso: string | null,
+) {
+  const { data, error } = await cloud
+    .from("bookedin_appointments")
+    .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, created_at")
+    .eq("contact_email", email)
+    .in("appointment_status", ["booked", "rescheduled"])
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.error("prior appointment lookup failed", error);
+    return null;
+  }
+  const rows = (data ?? []) as Array<Record<string, any>>;
+  if (rows.length === 0) return null;
+
+  if (apptDateIso) {
+    const exact = rows.find((r) => r.appointment_date === apptDateIso);
+    if (exact) return { row: exact, matchType: "email+exact_time" as const };
+    const target = new Date(apptDateIso).getTime();
+    const dated = rows.filter((r) => !!r.appointment_date);
+    if (dated.length) {
+      dated.sort(
+        (a, b) =>
+          Math.abs(new Date(a.appointment_date).getTime() - target) -
+          Math.abs(new Date(b.appointment_date).getTime() - target),
+      );
+      return { row: dated[0], matchType: "email+closest_time" as const };
+    }
+  }
+  return { row: rows[0], matchType: "email+most_recent" as const };
+}
+
 
 async function findDuplicateLog(
   cloud: ReturnType<typeof createClient>,
