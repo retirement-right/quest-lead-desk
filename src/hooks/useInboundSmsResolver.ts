@@ -32,13 +32,18 @@ export function useInboundSmsResolver() {
 
     (async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token || cancelled) return;
+        const headers = { Authorization: `Bearer ${session.access_token}` };
+
         const { data: listData, error: listErr } = await cloudSupabase.functions.invoke(
           "resolve-inbound-sms",
-          { body: { action: "list" } },
+          { headers, body: { action: "list" } },
         );
         if (listErr || cancelled) return;
         const pending = ((listData as any)?.pending ?? []) as PendingSms[];
         if (pending.length === 0) return;
+
 
         const tails = new Map<string, string[]>(); // tail -> unmatched ids
         for (const row of pending) {
