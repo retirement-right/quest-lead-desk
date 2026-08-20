@@ -140,9 +140,22 @@ Deno.serve(async (req) => {
     console.warn("twilio-inbound-sms: rejected request without X-Twilio-Signature");
     return textResponse("Forbidden", 403);
   }
-  const valid = await validateTwilioSignature(req, params, signature, authToken);
+  let valid = false;
+  for (const token of authTokens) {
+    if (await validateTwilioSignature(req, params, signature, token)) {
+      valid = true;
+      break;
+    }
+  }
   if (!valid) {
-    console.warn("twilio-inbound-sms: rejected request with invalid signature");
+    const configuredSid = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
+    const requestSid = params.AccountSid ?? "";
+    console.warn(
+      "twilio-inbound-sms: rejected request with invalid signature. " +
+        `to=${params.To ?? ""} account_sid_matches_configured=${
+          !!requestSid && requestSid === configuredSid
+        } request_account_sid_tail=${requestSid.slice(-4)} tokens_tried=${authTokens.length}`,
+    );
     return textResponse("Forbidden", 403);
   }
 
