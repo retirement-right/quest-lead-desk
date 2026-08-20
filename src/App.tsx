@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { RequireAuth } from "@/components/RequireAuth";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
+
 import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
 import FollowUps from "./pages/FollowUps";
