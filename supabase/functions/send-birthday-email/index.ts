@@ -78,14 +78,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: "Invalid email" }, 400);
     }
 
+    // SendGrid rejects (400) any personalization where an address repeats across to/cc/bcc.
+    const bcc = normalizeEmail(BCC_EMAIL);
+    const personalization: Record<string, unknown> = { to: [{ email: to }] };
+    if (bcc && bcc !== to) personalization.bcc = [{ email: bcc }];
+
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: to }],
-          bcc: [{ email: BCC_EMAIL }],
-        }],
+        personalizations: [personalization],
         from: { email: FROM_EMAIL, name: FROM_NAME },
         reply_to: { email: REPLY_TO },
         subject: SUBJECT(body.firstName),
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
       sent_by: sentBy,
       year_sent: new Date().getFullYear(),
       person_kind: body.personKind,
-      notes: `BCC: ${BCC_EMAIL}`,
+      notes: personalization.bcc ? `BCC: ${bcc}` : "No BCC (recipient is admin address)",
     });
 
     return jsonResponse({ success: true });
