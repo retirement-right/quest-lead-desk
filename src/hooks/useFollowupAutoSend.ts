@@ -81,7 +81,9 @@ export function useFollowupAutoSend() {
             const fn = type === "email" ? "send-followup-email" : "send-followup-sms";
             const { data, error } = await cloudSupabase.functions.invoke(fn, {
               headers,
-              body: { leadId: lead.id },
+              // `auto: true` tells the function to send the admin confirmation
+              // (SMS success + failures) — manual sends stay silent.
+              body: { leadId: lead.id, auto: true, clientName: lead.name ?? "" },
             });
             if (error) throw error;
             if (data && (data as any).success === false) {

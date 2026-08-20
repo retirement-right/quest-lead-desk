@@ -4,9 +4,13 @@ import {
   loadLeadRecipient,
   requireStaffAuth,
 } from "../_shared/followup-auth.ts";
+import { notifyFollowupEmailFailed } from "../_shared/admin-notify.ts";
 
 interface Body {
   leadId?: string;
+  /** true when dispatched by the scheduled auto-send flow. */
+  auto?: boolean;
+  clientName?: string;
 }
 
 Deno.serve(async (req) => {
@@ -20,6 +24,10 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  let isAuto = false;
+  let clientName = "";
+  let clientEmail = "";
+
   try {
     const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
     const SENDGRID_FROM_EMAIL = Deno.env.get("SENDGRID_FROM_EMAIL");
@@ -28,13 +36,20 @@ Deno.serve(async (req) => {
 
     const body = (await req.json()) as Body;
     const leadId = String(body.leadId ?? "").trim();
+    isAuto = body.auto === true;
+    clientName = String(body.clientName ?? "").trim();
     if (!leadId) {
       return jsonResponse({ error: "leadId is required" }, 400);
     }
 
     const lead = await loadLeadRecipient(leadId, "email", auth.jwt);
-    if (lead instanceof Response) return lead;
-    const { recipient: to, firstName } = lead;
+    if (lead instanceof Response) {
+      if (isAuto) await notifyFollowupEmailFailed(clientName, clientEmail);
+      return lead;
+    }
+    const { recipient: to, firstName, fullName } = lead;
+    clientEmail = to;
+    clientName = clientName || fullName;
 
     const text = `Hi ${firstName}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
 
@@ -57,10 +72,12 @@ Deno.serve(async (req) => {
       throw new Error(`SendGrid error [${sgRes.status}]: ${errText}`);
     }
 
+    // Successful emails are intentionally silent — alerts only on failure.
     return jsonResponse({ success: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("send-followup-email error:", msg);
+    if (isAuto) await notifyFollowupEmailFailed(clientName, clientEmail);
     return jsonResponse({ success: false, error: msg }, 500);
   }
 });

@@ -5,6 +5,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { jsonResponse, normalizePhone, requireCronSecret } from "../_shared/followup-auth.ts";
+import {
+  notifyFollowupEmailFailed,
+  notifyFollowupSmsFailed,
+  notifyFollowupSmsSent,
+} from "../_shared/admin-notify.ts";
 
 const PROXY_URL =
   "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-followups-proxy";
@@ -126,9 +131,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      let recipient = "";
+      let body = "";
       try {
-        let recipient = "";
-        let body = "";
         if (type === "email") {
           if (lead.do_not_email) { summary.skipped += 1; continue; }
           const to = String(lead.email || "").trim();
@@ -157,6 +162,11 @@ Deno.serve(async (req) => {
           status: "sent",
         });
 
+        // Admin notification: every successful auto-send SMS, never for emails.
+        if (type === "sms") {
+          await notifyFollowupSmsSent(String(lead.name ?? ""), recipient);
+        }
+
         summary.sent += 1;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -169,6 +179,11 @@ Deno.serve(async (req) => {
           status: "error",
           error: msg,
         });
+        if (type === "sms") {
+          await notifyFollowupSmsFailed(String(lead.name ?? ""), recipient);
+        } else {
+          await notifyFollowupEmailFailed(String(lead.name ?? ""), recipient);
+        }
       }
     }
 

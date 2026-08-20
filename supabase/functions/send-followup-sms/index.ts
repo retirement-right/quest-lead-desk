@@ -4,9 +4,16 @@ import {
   loadLeadRecipient,
   requireStaffAuth,
 } from "../_shared/followup-auth.ts";
+import {
+  notifyFollowupSmsFailed,
+  notifyFollowupSmsSent,
+} from "../_shared/admin-notify.ts";
 
 interface Body {
   leadId?: string;
+  /** true when dispatched by the scheduled auto-send flow (admin gets a ping). */
+  auto?: boolean;
+  clientName?: string;
 }
 
 Deno.serve(async (req) => {
@@ -20,6 +27,11 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  // Populated as soon as we know them, so the failure path can name the client.
+  let isAuto = false;
+  let clientName = "";
+  let clientPhone = "";
+
   try {
     const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -30,13 +42,20 @@ Deno.serve(async (req) => {
 
     const body = (await req.json()) as Body;
     const leadId = String(body.leadId ?? "").trim();
+    isAuto = body.auto === true;
+    clientName = String(body.clientName ?? "").trim();
     if (!leadId) {
       return jsonResponse({ error: "leadId is required" }, 400);
     }
 
     const lead = await loadLeadRecipient(leadId, "sms", auth.jwt);
-    if (lead instanceof Response) return lead;
-    const { recipient: to, firstName } = lead;
+    if (lead instanceof Response) {
+      if (isAuto) await notifyFollowupSmsFailed(clientName, clientPhone);
+      return lead;
+    }
+    const { recipient: to, firstName, fullName } = lead;
+    clientPhone = to;
+    clientName = clientName || fullName;
 
     const text = `Hi ${firstName}, this is Michael from Retirement Right. Just checking in — give me a call at 480-726-8805 when you have a moment. Thank you!`;
 
@@ -62,10 +81,14 @@ Deno.serve(async (req) => {
       throw new Error(`Twilio error [${twRes.status}]: ${JSON.stringify(data)}`);
     }
 
+    // Client message accepted by Twilio — now (and only now) ping the admin.
+    if (isAuto) await notifyFollowupSmsSent(clientName, clientPhone);
+
     return jsonResponse({ success: true, sid: data.sid });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("send-followup-sms error:", msg);
+    if (isAuto) await notifyFollowupSmsFailed(clientName, clientPhone);
     return jsonResponse({ success: false, error: msg }, 500);
   }
 });
