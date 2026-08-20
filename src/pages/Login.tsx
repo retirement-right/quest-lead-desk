@@ -86,7 +86,17 @@ export default function Login() {
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Sign in
             </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="w-full text-sm"
+              onClick={onReset}
+              disabled={loading}
+            >
+              Forgot password?
+            </Button>
           </form>
+
         </CardContent>
       </Card>
     </div>
