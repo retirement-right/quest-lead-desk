@@ -157,6 +157,11 @@ Deno.serve(async (req) => {
           status: "sent",
         });
 
+        // Admin notification: every successful auto-send SMS, never for emails.
+        if (type === "sms") {
+          await notifyFollowupSmsSent(String(lead.name ?? ""), recipient);
+        }
+
         summary.sent += 1;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -169,6 +174,11 @@ Deno.serve(async (req) => {
           status: "error",
           error: msg,
         });
+        if (type === "sms") {
+          await notifyFollowupSmsFailed(String(lead.name ?? ""), recipient);
+        } else {
+          await notifyFollowupEmailFailed(String(lead.name ?? ""), recipient);
+        }
       }
     }
 
