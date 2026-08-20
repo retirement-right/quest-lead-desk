@@ -59,9 +59,51 @@ function isBenignCancelledError(status: AppointmentStatus, err: string): boolean
 function isProcessedOk(processError: string | null): boolean {
   if (!processError) return true;
   if (processError === "cancelled event with no contact name; not forwarded") return true;
+  if (processError.startsWith("cancelled event with no matching CRM appointment")) return true;
   if (processError.startsWith("skipped (cancelled, attendee update): ")) return true;
   return false;
 }
+
+// For cancellations: find the prior booked/rescheduled BookedIN appointment for
+// the same contact email so we can cancel THAT appointment instead of creating a
+// new contact/appointment. Prefers an exact appointment_date match, then the
+// closest appointment in time, then the most recent one.
+async function findPriorAppointment(
+  cloud: ReturnType<typeof createClient>,
+  email: string,
+  apptDateIso: string | null,
+) {
+  const { data, error } = await cloud
+    .from("bookedin_appointments")
+    .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, created_at")
+    .eq("contact_email", email)
+    .in("appointment_status", ["booked", "rescheduled"])
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.error("prior appointment lookup failed", error);
+    return null;
+  }
+  const rows = (data ?? []) as Array<Record<string, any>>;
+  if (rows.length === 0) return null;
+
+  if (apptDateIso) {
+    const exact = rows.find((r) => r.appointment_date === apptDateIso);
+    if (exact) return { row: exact, matchType: "email+exact_time" as const };
+    const target = new Date(apptDateIso).getTime();
+    const dated = rows.filter((r) => !!r.appointment_date);
+    if (dated.length) {
+      dated.sort(
+        (a, b) =>
+          Math.abs(new Date(a.appointment_date).getTime() - target) -
+          Math.abs(new Date(b.appointment_date).getTime() - target),
+      );
+      return { row: dated[0], matchType: "email+closest_time" as const };
+    }
+  }
+  return { row: rows[0], matchType: "email+most_recent" as const };
+}
+
 
 async function findDuplicateLog(
   cloud: ReturnType<typeof createClient>,
@@ -196,13 +238,34 @@ Deno.serve(async (req) => {
   let proxyBody: unknown = null;
   let skippedReason: string | null = null;
 
-  // Don't forward cancellation events for unknown contacts with no name —
-  // otherwise the proxy creates a blank-named "Cancelled" record. We still
-  // keep the raw entry in bookedin_appointments for audit.
-  const skipForward = status === "cancelled" && !name;
+  // Cancellations: contact_name is NOT required. Match the existing contact /
+  // appointment by normalized email (+ exact or closest appointment time) and
+  // cancel THAT appointment. Only skip when there is no prior BookedIN
+  // appointment for this email AND no name — forwarding then would create a
+  // blank duplicate contact in the CRM.
+  let matchType: string | null = null;
+  let matchedName: string | null = name || null;
+  let matchedPhone: string | null = phone || null;
+  let matchedAppointmentIso: string | null = apptDateIso;
+  let matchedLogId: string | null = null;
+
+  if (status === "cancelled") {
+    const prior = await findPriorAppointment(cloud, email, apptDateIso);
+    if (prior) {
+      matchType = prior.matchType;
+      matchedLogId = prior.row.id as string;
+      matchedName = name || (prior.row.contact_name as string | null) || null;
+      matchedPhone = phone || (prior.row.contact_phone as string | null) || null;
+      matchedAppointmentIso = apptDateIso ?? (prior.row.appointment_date as string | null) ?? null;
+    }
+  }
+
+  const skipForward =
+    status === "cancelled" && !matchedName && !matchType;
 
   if (skipForward) {
-    skippedReason = "cancelled event with no contact name; not forwarded";
+    skippedReason =
+      "cancelled event with no matching CRM appointment and no contact name; not forwarded";
   }
 
   try {
@@ -215,17 +278,19 @@ Deno.serve(async (req) => {
         : status === "rescheduled"
         ? "Rescheduled via BookedIN"
         : "Booked via BookedIN";
+    const isCancel = status === "cancelled";
     const body = {
       email,
-      contact_name: name || null,
+      contact_name: isCancel ? matchedName : name || null,
       first_name: firstName || null,
       last_name: lastName || null,
-      contact_phone: phone || null,
+      contact_phone: isCancel ? matchedPhone : phone || null,
       lifecycle_stage: lifecycleStage,
-      appointment_at: apptDateIso,
+      appointment_at: isCancel ? matchedAppointmentIso : apptDateIso,
       booked_at: new Date().toISOString(),
       notes: noteText,
     };
+
 
     const resp = await fetch(LEADJIG_PROXY_URL, {
       method: "POST",
@@ -329,16 +394,37 @@ Deno.serve(async (req) => {
   }
 
 
+  if (status === "cancelled") {
+    console.log("cancellation handled", JSON.stringify({
+      email, match_type: matchType, matched_log_id: matchedLogId,
+      matched_appointment_at: matchedAppointmentIso, skipped: skippedReason,
+      error: processError,
+    }));
+  }
+
   return new Response(
     JSON.stringify({
       success: !processError,
       duplicate,
       skipped: skippedReason,
       log_id: logId,
+      status,
+      cancellation: status === "cancelled"
+        ? {
+            matched: !!matchType,
+            match_type: matchType,
+            matched_log_id: matchedLogId,
+            matched_contact_name: matchedName,
+            matched_contact_email: email,
+            matched_appointment_at: matchedAppointmentIso,
+            cancelled: !processError && !skipForward,
+          }
+        : undefined,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
       error: processError,
     }),
+
     { status: processError ? 502 : 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
