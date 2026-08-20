@@ -84,10 +84,11 @@ const bookedInName = (row: BookedInAppointmentRow) =>
 
 const isBookedInAppointmentsResponse = (
   value: unknown,
-): value is { appointments: BookedInAppointmentRow[] } =>
+): value is { appointments: BookedInAppointmentRow[]; cancellations?: BookedInAppointmentRow[] } =>
   typeof value === "object" &&
   value !== null &&
   Array.isArray((value as { appointments?: unknown }).appointments);
+
 
 interface Appt {
   lead: Lead;
@@ -109,7 +110,10 @@ export default function Appointments() {
 
   // Fetch BookedIN appointments via the Cloud edge function with retry/backoff.
   const fetchBookedRows = useCallback(
-    async (accessToken: string, maxAttempts = 3): Promise<BookedInAppointmentRow[]> => {
+    async (
+      accessToken: string,
+      maxAttempts = 3,
+    ): Promise<{ appointments: BookedInAppointmentRow[]; cancellations: BookedInAppointmentRow[] }> => {
       let lastErr: string | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const { data, error } = await cloudSupabase.functions.invoke(
@@ -117,7 +121,7 @@ export default function Appointments() {
           { headers: { Authorization: `Bearer ${accessToken}` } },
         );
         if (!error && isBookedInAppointmentsResponse(data)) {
-          return data.appointments;
+          return { appointments: data.appointments, cancellations: data.cancellations ?? [] };
         }
         lastErr = error?.message ?? "Unexpected response from BookedIN service";
         if (attempt < maxAttempts) {
@@ -128,6 +132,7 @@ export default function Appointments() {
     },
     [],
   );
+
 
   const loadAppointments = useCallback(async () => {
     setLoading(true);
@@ -182,17 +187,36 @@ export default function Appointments() {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
     let bookedRows: BookedInAppointmentRow[] = [];
+    let cancelledRows: BookedInAppointmentRow[] = [];
     if (!accessToken) {
       setBookedinError("You are signed out — sign in to load BookedIN appointments.");
     } else {
       try {
-        bookedRows = await fetchBookedRows(accessToken);
+        const res = await fetchBookedRows(accessToken);
+        bookedRows = res.appointments;
+        cancelledRows = res.cancellations;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("BookedIN fetch failed", msg);
         setBookedinError(msg);
       }
     }
+
+    // Cancelled BookedIN appointments must disappear from the CRM lists.
+    const cancelledKeys = new Set<string>(); // email|isoTs
+    const cancelledTimes = new Set<string>(); // isoTs (cancellations with no email)
+    for (const row of cancelledRows) {
+      const appointmentAt = bookedInAppointmentAt(row);
+      if (!appointmentAt) continue;
+      const date = new Date(appointmentAt);
+      if (isNaN(date.getTime())) continue;
+      const ts = date.toISOString();
+      const email = (row.contact_email ?? "").trim().toLowerCase();
+      cancelledTimes.add(ts);
+      if (email) cancelledKeys.add(`${email}|${ts}`);
+    }
+    const isCancelled = (email: string, ts: string) =>
+      cancelledKeys.has(`${email}|${ts}`) || (!email && cancelledTimes.has(ts));
 
     // Dedupe bookedin rows by (email + timestamp) to avoid duplicate webhooks
     const bookedSeen = new Set<string>();
@@ -202,6 +226,7 @@ export default function Appointments() {
 
     const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, unknown> | null }>();
     for (const row of bookedRows) {
+
       const email = (row.contact_email ?? "").trim().toLowerCase();
       if (email && !bookedContactByEmail.has(email)) {
         bookedContactByEmail.set(email, {
@@ -215,9 +240,11 @@ export default function Appointments() {
       const date = new Date(appointmentAt);
       if (isNaN(date.getTime())) continue;
       const ts = date.toISOString();
+      if (isCancelled(email, ts)) continue;
       const dedupeKey = `${email}|${ts}`;
       if (bookedSeen.has(dedupeKey)) continue;
       bookedSeen.add(dedupeKey);
+
       if (email) {
         bookedKeys.add(dedupeKey);
         bookedDayKeys.add(`${email}|${phxDayKey(date)}`);
@@ -255,8 +282,10 @@ export default function Appointments() {
       if (isNaN(d.getTime())) return false;
       const ts = d.toISOString();
       if (bookedKeys.has(`${email}|${ts}`)) return false;
+      if (email && cancelledKeys.has(`${email}|${ts}`)) return false;
       if (email && bookedDayKeys.has(`${email}|${phxDayKey(d)}`)) return false;
       return true;
+
     }).map((l) => {
 
       const email = (l.email ?? "").trim().toLowerCase();
