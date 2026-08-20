@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
   if (status === "cancelled") {
     const prior = await findPriorAppointment(cloud, email, apptDateIso);
     if (prior) {
-      matchType = prior.matchType;
+      matchType = timeOnlyMatch ? "exact_time_only" : prior.matchType;
       matchedLogId = prior.row.id as string;
       matchedName = name || (prior.row.contact_name as string | null) || null;
       matchedPhone = phone || (prior.row.contact_phone as string | null) || null;
