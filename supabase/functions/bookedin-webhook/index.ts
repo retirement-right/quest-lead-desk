@@ -238,13 +238,34 @@ Deno.serve(async (req) => {
   let proxyBody: unknown = null;
   let skippedReason: string | null = null;
 
-  // Don't forward cancellation events for unknown contacts with no name —
-  // otherwise the proxy creates a blank-named "Cancelled" record. We still
-  // keep the raw entry in bookedin_appointments for audit.
-  const skipForward = status === "cancelled" && !name;
+  // Cancellations: contact_name is NOT required. Match the existing contact /
+  // appointment by normalized email (+ exact or closest appointment time) and
+  // cancel THAT appointment. Only skip when there is no prior BookedIN
+  // appointment for this email AND no name — forwarding then would create a
+  // blank duplicate contact in the CRM.
+  let matchType: string | null = null;
+  let matchedName: string | null = name || null;
+  let matchedPhone: string | null = phone || null;
+  let matchedAppointmentIso: string | null = apptDateIso;
+  let matchedLogId: string | null = null;
+
+  if (status === "cancelled") {
+    const prior = await findPriorAppointment(cloud, email, apptDateIso);
+    if (prior) {
+      matchType = prior.matchType;
+      matchedLogId = prior.row.id as string;
+      matchedName = name || (prior.row.contact_name as string | null) || null;
+      matchedPhone = phone || (prior.row.contact_phone as string | null) || null;
+      matchedAppointmentIso = apptDateIso ?? (prior.row.appointment_date as string | null) ?? null;
+    }
+  }
+
+  const skipForward =
+    status === "cancelled" && !matchedName && !matchType;
 
   if (skipForward) {
-    skippedReason = "cancelled event with no contact name; not forwarded";
+    skippedReason =
+      "cancelled event with no matching CRM appointment and no contact name; not forwarded";
   }
 
   try {
@@ -257,17 +278,19 @@ Deno.serve(async (req) => {
         : status === "rescheduled"
         ? "Rescheduled via BookedIN"
         : "Booked via BookedIN";
+    const isCancel = status === "cancelled";
     const body = {
       email,
-      contact_name: name || null,
+      contact_name: isCancel ? matchedName : name || null,
       first_name: firstName || null,
       last_name: lastName || null,
-      contact_phone: phone || null,
+      contact_phone: isCancel ? matchedPhone : phone || null,
       lifecycle_stage: lifecycleStage,
-      appointment_at: apptDateIso,
+      appointment_at: isCancel ? matchedAppointmentIso : apptDateIso,
       booked_at: new Date().toISOString(),
       notes: noteText,
     };
+
 
     const resp = await fetch(LEADJIG_PROXY_URL, {
       method: "POST",
