@@ -1,6 +1,7 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizePhone } from "../_shared/followup-auth.ts";
+import { notifyBirthdaySmsSent, notifyBirthdaySmsFailed } from "../_shared/admin-notify.ts";
 
 interface Body {
   contactId: string;
