@@ -398,16 +398,22 @@ export default function Contacts() {
     } else {
       toast.success("Status updated");
       const { supabase: cloud } = await import("@/integrations/supabase/client");
-      const { data: { user } } = await cloud.auth.getUser();
-      await cloud.from("contact_activity" as any).insert({
-        lead_id: lead.id,
-        type: "status_change",
-        channel: "status",
-        body: `${prevLabel} → ${newStatus}`,
-        status: "ok",
-        created_by: user?.id ?? null,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await cloud.functions.invoke("contact-activity", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: {
+            action: "log",
+            leadId: lead.id,
+            type: "status_change",
+            channel: "status",
+            body: `${prevLabel} → ${newStatus}`,
+            status: "ok",
+          },
+        });
+      }
     }
+
   };
 
   return (
