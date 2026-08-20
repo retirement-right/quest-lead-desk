@@ -248,6 +248,28 @@ export default function Contacts() {
     // If the search looks like an email/phone (has @ or 3+ digits), search broadly.
     // Otherwise treat it as a name search and only match the name field.
     const isContactLookup = needle.includes("@") || (needle.match(/\d/g)?.length ?? 0) >= 3;
+    // Digits-only needle so "4802214264", "480-221-4264" and "(480) 221-4264"
+    // all match a phone stored in any format.
+    const needleDigits = needle.replace(/\D/g, "");
+    const digitsOnly = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+    const phoneCandidates = (l: Lead): string[] => {
+      const rp = (l.raw_payload ?? {}) as Record<string, unknown>;
+      return [
+        l.phone,
+        rp.phone,
+        rp.phone_number,
+        rp.phoneNumber,
+        rp.mobile,
+        rp.mobile_phone,
+        rp.cell,
+        rp.cell_phone,
+        rp.home_phone,
+        rp.primary_phone,
+        rp.telephone,
+      ]
+        .map(digitsOnly)
+        .filter((d) => d.length >= 7);
+    };
     return leads.filter((l) => {
       if (status !== "all" && stageToLabel(effectiveLifecycleStage(l)) !== status) return false;
       if (optOutOnly && !l.do_not_email) return false;
@@ -256,11 +278,15 @@ export default function Contacts() {
         const name = fullName(l).toLowerCase();
         return name && name !== "—" && name.includes(needle);
       }
+      if (needleDigits.length >= 3 && phoneCandidates(l).some((d) => d.includes(needleDigits))) {
+        return true;
+      }
       return [fullName(l), l.email, l.phone, l.event_name, composedAddress(l)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
   }, [leads, q, status, optOutOnly]);
+
 
   const regTime = (l: Lead): number => {
     const raw = (l.raw_payload as any)?.registration_date || l.created_at;
