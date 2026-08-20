@@ -5,6 +5,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { jsonResponse, normalizePhone, requireCronSecret } from "../_shared/followup-auth.ts";
+import {
+  notifyFollowupEmailFailed,
+  notifyFollowupSmsFailed,
+  notifyFollowupSmsSent,
+} from "../_shared/admin-notify.ts";
 
 const PROXY_URL =
   "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-followups-proxy";
