@@ -67,20 +67,27 @@ export function normalizeEmail(raw: string): string | null {
   return e;
 }
 
+/** Reads the lead through the caller's own LeadJig staff session (publishable
+ *  key + staff JWT), so no service-role key is required and LeadJig RLS still
+ *  applies exactly as it does in the browser. */
 export async function loadLeadRecipient(
   leadId: string,
   channel: "email" | "sms",
+  staffJwt: string,
 ): Promise<{ recipient: string; firstName: string } | Response> {
-  const serviceKey = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY");
-  if (!serviceKey) {
-    return jsonResponse({ error: "Server not configured" }, 500);
+  if (!staffJwt) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
-  const admin = createClient(LEADJIG_URL, serviceKey);
-  const { data: lead, error } = await admin
+  const client = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${staffJwt}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: lead, error } = await client
     .from("leadjig_leads")
     .select("id, name, email, phone, do_not_email, raw_payload")
     .eq("id", leadId)
     .maybeSingle();
+
 
   if (error || !lead) {
     return jsonResponse({ error: "Lead not found" }, 404);
