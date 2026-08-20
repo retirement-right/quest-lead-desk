@@ -101,11 +101,17 @@ export type Database = {
           channel: string | null
           created_at: string
           created_by: string | null
+          direction: string
           error: string | null
           id: string
           lead_id: string
+          message_sid: string | null
+          metadata: Json | null
+          provider_status: string | null
           recipient: string | null
+          sender: string | null
           status: string
+          to_number: string | null
           type: string
         }
         Insert: {
@@ -113,11 +119,17 @@ export type Database = {
           channel?: string | null
           created_at?: string
           created_by?: string | null
+          direction?: string
           error?: string | null
           id?: string
           lead_id: string
+          message_sid?: string | null
+          metadata?: Json | null
+          provider_status?: string | null
           recipient?: string | null
+          sender?: string | null
           status?: string
+          to_number?: string | null
           type: string
         }
         Update: {
@@ -125,12 +137,63 @@ export type Database = {
           channel?: string | null
           created_at?: string
           created_by?: string | null
+          direction?: string
           error?: string | null
           id?: string
           lead_id?: string
+          message_sid?: string | null
+          metadata?: Json | null
+          provider_status?: string | null
           recipient?: string | null
+          sender?: string | null
           status?: string
+          to_number?: string | null
           type?: string
+        }
+        Relationships: []
+      }
+      inbound_sms_unmatched: {
+        Row: {
+          body: string | null
+          created_at: string
+          from_number: string
+          id: string
+          message_sid: string
+          metadata: Json | null
+          num_media: number
+          provider_status: string | null
+          received_at: string
+          resolved_at: string | null
+          resolved_lead_id: string | null
+          to_number: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          from_number: string
+          id?: string
+          message_sid: string
+          metadata?: Json | null
+          num_media?: number
+          provider_status?: string | null
+          received_at?: string
+          resolved_at?: string | null
+          resolved_lead_id?: string | null
+          to_number?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          from_number?: string
+          id?: string
+          message_sid?: string
+          metadata?: Json | null
+          num_media?: number
+          provider_status?: string | null
+          received_at?: string
+          resolved_at?: string | null
+          resolved_lead_id?: string | null
+          to_number?: string | null
         }
         Relationships: []
       }
