@@ -104,6 +104,30 @@ async function findPriorAppointment(
   return { row: rows[0], matchType: "email+most_recent" as const };
 }
 
+// Cancellation-only fallback: the BookedIN email had no client name AND no
+// client email, but did include the exact appointment date/time. Look for
+// BookedIN-sourced appointments (this table only ever holds BookedIN events —
+// manually entered CRM appointments are never stored here, so time-only
+// matching can't touch them) at that exact instant. Only a single unambiguous
+// match is actionable.
+async function findByExactTimeOnly(
+  cloud: ReturnType<typeof createClient>,
+  apptDateIso: string,
+) {
+  const { data, error } = await cloud
+    .from("bookedin_appointments")
+    .select("id, contact_email, contact_name, contact_phone, appointment_date, appointment_status, created_at")
+    .eq("appointment_date", apptDateIso)
+    .in("appointment_status", ["booked", "rescheduled"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) {
+    console.error("exact-time lookup failed", error);
+    return { rows: [] as Array<Record<string, any>>, error: error.message };
+  }
+  return { rows: (data ?? []) as Array<Record<string, any>>, error: null };
+}
+
 
 async function findDuplicateLog(
   cloud: ReturnType<typeof createClient>,
