@@ -1039,38 +1039,67 @@ export default function ContactDetail() {
                 <ul className="divide-y">
                   {items.map((a) => {
                     const isStatus = a.type === "status_change" || a.type === "registered";
+                    const isInbound = a.direction === "inbound";
                     return (
                       <li key={a.id} className="py-3">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="text-sm font-medium">
-                            {isStatus
-                              ? (a.type === "registered" ? "Registered" : "Status changed")
-                              : (a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel)}
+                          <div className="text-sm font-medium flex items-center gap-2">
+                            <span>
+                              {isStatus
+                                ? (a.type === "registered" ? "Registered" : "Status changed")
+                                : (a.channel === "sms" ? "SMS" : a.channel === "email" ? "Email" : a.channel)}
+                            </span>
                             {!isStatus && (
-                              <>
-                                {" · "}
-                                <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
-                                  {a.status}
-                                </span>
-                              </>
+                              <span
+                                className={
+                                  "text-[11px] uppercase tracking-wide rounded px-1.5 py-0.5 " +
+                                  (isInbound
+                                    ? "bg-sky-100 text-sky-700"
+                                    : "bg-muted text-muted-foreground")
+                                }
+                              >
+                                {isInbound ? "Incoming" : "Outgoing"}
+                              </span>
+                            )}
+                            {!isStatus && (
+                              <span className={a.status === "error" ? "text-destructive" : "text-emerald-600"}>
+                                {a.status}
+                              </span>
                             )}
                             {a.type === "followup_auto_send" && (
-                              <span className="ml-2 text-xs text-muted-foreground">(auto-send)</span>
+                              <span className="text-xs text-muted-foreground">(auto-send)</span>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground">
                             {new Date(a.created_at).toLocaleString()}
                           </span>
                         </div>
-                        {a.recipient && (
-                          <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
+                        {isInbound ? (
+                          a.sender && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              From: {a.sender}
+                              {a.to_number ? ` → ${a.to_number}` : ""}
+                            </p>
+                          )
+                        ) : (
+                          a.recipient && (
+                            <p className="text-xs text-muted-foreground mt-1">To: {a.recipient}</p>
+                          )
                         )}
                         {a.body && (
-                          <p className="text-sm mt-1 whitespace-pre-wrap">{a.body}</p>
+                          <p
+                            className={
+                              "text-sm mt-1 whitespace-pre-wrap rounded-md " +
+                              (isInbound ? "bg-sky-50 border border-sky-100 p-2" : "")
+                            }
+                          >
+                            {a.body}
+                          </p>
                         )}
                         {a.error && (
                           <p className="text-xs text-destructive mt-1">{a.error}</p>
                         )}
+
                       </li>
                     );
                   })}

@@ -21,3 +21,8 @@ verify_jwt = false
 
 [functions.admin-migrate-notes-to-financial]
 verify_jwt = false
+
+# Twilio webhook — authenticated via X-Twilio-Signature inside the handler.
+[functions.twilio-inbound-sms]
+verify_jwt = false
+
