@@ -126,9 +126,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      let recipient = "";
+      let body = "";
       try {
-        let recipient = "";
-        let body = "";
         if (type === "email") {
           if (lead.do_not_email) { summary.skipped += 1; continue; }
           const to = String(lead.email || "").trim();
