@@ -333,11 +333,59 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!email) {
-    return new Response(JSON.stringify({ error: "contact_email is required" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  // Booked / rescheduled with a blank contact_email: recover it from the raw
+  // payload text, then from prior BookedIN log rows for the same client.
+  let emailRecoveredVia: string | null = null;
+  if (!email && status !== "cancelled") {
+    const fromPayload = deepFindEmail(payload);
+    if (fromPayload) {
+      email = fromPayload;
+      emailRecoveredVia = "raw_payload";
+    } else {
+      const recovered = await recoverEmailFromLog(cloud, name, phone);
+      if (recovered) {
+        email = recovered.email;
+        emailRecoveredVia = recovered.via;
+      }
+    }
+    if (emailRecoveredVia) {
+      console.log("email recovered", JSON.stringify({ via: emailRecoveredVia, email }));
+    }
   }
+
+  if (!email) {
+    // Still no email: record the event for manual review and return 200 so
+    // Zapier doesn't hard-fail. No forwarding — that would create a blank
+    // duplicate contact in the CRM.
+    const reason = `${status} event with no contact_email; could not recover from payload or prior BookedIN logs; manual review required`;
+    console.warn(reason);
+    const { data: reviewRow } = await cloud
+      .from("bookedin_appointments")
+      .insert({
+        contact_email: "unknown@bookedin.local",
+        contact_name: name || null,
+        contact_phone: phone || null,
+        appointment_date: apptDateIso,
+        appointment_status: status,
+        notes,
+        raw_payload: payload,
+        processed_at: new Date().toISOString(),
+        process_error: reason,
+      })
+      .select("id")
+      .single();
+    return new Response(
+      JSON.stringify({
+        success: true,
+        skipped: reason,
+        log_id: reviewRow?.id ?? null,
+        status,
+        manual_review: true,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
 
   const existing = await findDuplicateLog(cloud, email, status, apptDateIso);
 
