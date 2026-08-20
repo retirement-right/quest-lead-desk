@@ -38,6 +38,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<DueItem[]>([]);
   const alertedRef = useRef(false);
 
+  // Attach any queued inbound SMS replies to their contacts (uses staff session).
+  useInboundSmsResolver();
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
