@@ -133,6 +133,81 @@ async function findByExactTimeOnly(
 }
 
 
+// Booked/rescheduled recovery helpers: Zapier sometimes forwards a blank
+// contact_email because BookedIN's email template didn't expose it. Rather
+// than rejecting the run, recover the address from the raw payload itself,
+// then from prior BookedIN log rows for the same person.
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const BAD_EMAIL_DOMAINS = /@(bookedin\.(com|local|net)|example\.com|noreply|no-reply)/i;
+
+function deepFindEmail(value: unknown, depth = 0): string | null {
+  if (depth > 6 || value == null) return null;
+  if (typeof value === "string") {
+    const m = value.match(EMAIL_RE);
+    if (m && !BAD_EMAIL_DOMAINS.test(m[0])) return m[0].toLowerCase();
+    return null;
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) {
+      const found = deepFindEmail(v, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value === "object") {
+    for (const v of Object.values(value as Record<string, unknown>)) {
+      const found = deepFindEmail(v, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function digits(s: string): string {
+  return s.replace(/\D/g, "").slice(-10);
+}
+
+// Look up a prior BookedIN log row for the same client (by exact name, then by
+// last-10-digit phone) and reuse its email so we update the existing contact
+// instead of creating a duplicate.
+async function recoverEmailFromLog(
+  cloud: ReturnType<typeof createClient>,
+  name: string,
+  phone: string,
+): Promise<{ email: string; via: string } | null> {
+  if (name) {
+    const { data } = await cloud
+      .from("bookedin_appointments")
+      .select("contact_email, contact_name, created_at")
+      .ilike("contact_name", name)
+      .not("contact_email", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const hit = (data ?? []).find((r: Record<string, any>) => {
+      const e = String(r.contact_email || "").toLowerCase();
+      return e && !BAD_EMAIL_DOMAINS.test(e) && e !== "unknown@bookedin.local";
+    });
+    if (hit) return { email: String(hit.contact_email).toLowerCase(), via: "prior_log_name" };
+  }
+  const d = digits(phone);
+  if (d.length === 10) {
+    const { data } = await cloud
+      .from("bookedin_appointments")
+      .select("contact_email, contact_phone, created_at")
+      .not("contact_phone", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const hit = (data ?? []).find((r: Record<string, any>) => {
+      const e = String(r.contact_email || "").toLowerCase();
+      return digits(String(r.contact_phone || "")) === d && e &&
+        !BAD_EMAIL_DOMAINS.test(e) && e !== "unknown@bookedin.local";
+    });
+    if (hit) return { email: String(hit.contact_email).toLowerCase(), via: "prior_log_phone" };
+  }
+  return null;
+}
+
+
 async function findDuplicateLog(
   cloud: ReturnType<typeof createClient>,
   email: string,
@@ -258,11 +333,59 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!email) {
-    return new Response(JSON.stringify({ error: "contact_email is required" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  // Booked / rescheduled with a blank contact_email: recover it from the raw
+  // payload text, then from prior BookedIN log rows for the same client.
+  let emailRecoveredVia: string | null = null;
+  if (!email && status !== "cancelled") {
+    const fromPayload = deepFindEmail(payload);
+    if (fromPayload) {
+      email = fromPayload;
+      emailRecoveredVia = "raw_payload";
+    } else {
+      const recovered = await recoverEmailFromLog(cloud, name, phone);
+      if (recovered) {
+        email = recovered.email;
+        emailRecoveredVia = recovered.via;
+      }
+    }
+    if (emailRecoveredVia) {
+      console.log("email recovered", JSON.stringify({ via: emailRecoveredVia, email }));
+    }
   }
+
+  if (!email) {
+    // Still no email: record the event for manual review and return 200 so
+    // Zapier doesn't hard-fail. No forwarding — that would create a blank
+    // duplicate contact in the CRM.
+    const reason = `${status} event with no contact_email; could not recover from payload or prior BookedIN logs; manual review required`;
+    console.warn(reason);
+    const { data: reviewRow } = await cloud
+      .from("bookedin_appointments")
+      .insert({
+        contact_email: "unknown@bookedin.local",
+        contact_name: name || null,
+        contact_phone: phone || null,
+        appointment_date: apptDateIso,
+        appointment_status: status,
+        notes,
+        raw_payload: payload,
+        processed_at: new Date().toISOString(),
+        process_error: reason,
+      })
+      .select("id")
+      .single();
+    return new Response(
+      JSON.stringify({
+        success: true,
+        skipped: reason,
+        log_id: reviewRow?.id ?? null,
+        status,
+        manual_review: true,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
 
   const existing = await findDuplicateLog(cloud, email, status, apptDateIso);
 
@@ -498,6 +621,8 @@ Deno.serve(async (req) => {
             cancelled: !processError && !skipForward,
           }
         : undefined,
+      email_recovered_via: emailRecoveredVia,
+      contact_email: email,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
       error: processError,
