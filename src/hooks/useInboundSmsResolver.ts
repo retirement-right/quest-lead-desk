@@ -8,11 +8,42 @@ interface PendingSms {
   from_number: string | null;
 }
 
-/** Last 10 digits, used for tolerant phone comparison. */
+/** Last 10 digits, used for tolerant phone comparison.
+ *  Strips every non-digit and drops a leading US country code, so
+ *  "(480) 221-4264", "480-221-4264", "4802214264", "+1 480 221 4264" and
+ *  "+14802214264" all reduce to the same "4802214264". */
 const phoneTail = (raw: string | null | undefined): string | null => {
   const digits = String(raw ?? "").replace(/\D/g, "");
   return digits.length >= 10 ? digits.slice(-10) : null;
 };
+
+/** Phone fields that LeadJig payloads are known to use. */
+const RAW_PHONE_KEYS = [
+  "phone",
+  "phone_number",
+  "phoneNumber",
+  "mobile",
+  "mobile_phone",
+  "cell",
+  "cell_phone",
+  "home_phone",
+  "primary_phone",
+  "telephone",
+];
+
+/** Every candidate phone tail for a lead: main column first, then raw_payload. */
+const leadPhoneTails = (lead: any): string[] => {
+  const tails = new Set<string>();
+  const main = phoneTail(lead?.phone);
+  if (main) tails.add(main);
+  const rp = (lead?.raw_payload ?? {}) as Record<string, unknown>;
+  for (const key of RAW_PHONE_KEYS) {
+    const t = phoneTail(rp?.[key] as string | null | undefined);
+    if (t) tails.add(t);
+  }
+  return [...tails];
+};
+
 
 /**
  * Attaches queued inbound SMS replies to their contacts.
