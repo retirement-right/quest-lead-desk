@@ -131,6 +131,10 @@ Deno.serve(async (req) => {
       person_kind: body.personKind,
     });
 
+    // Admin copy of the exact client message (admin phone only — never logged as
+    // client communication / Activity History).
+    await notifyBirthdaySmsSent(body.contactName, to, text);
+
     // Fire notification email to Michael's Gmail
     const notif = await sendNotificationEmail({
       firstName: body.firstName,
