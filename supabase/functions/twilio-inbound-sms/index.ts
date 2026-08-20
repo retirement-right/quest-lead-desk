@@ -56,18 +56,34 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/** Candidate URLs Twilio may have signed (proxy/host variations). */
+/** Candidate URLs Twilio may have signed (proxy/host/path/scheme variations). */
 function candidateUrls(req: Request): string[] {
   const urls: string[] = [];
+  const push = (v: string) => {
+    if (v && !urls.includes(v)) urls.push(v);
+  };
   const override = Deno.env.get("TWILIO_WEBHOOK_URL");
-  if (override) urls.push(override);
+  if (override) push(override);
+
   const u = new URL(req.url);
   const fwdHost = req.headers.get("x-forwarded-host");
   const host = req.headers.get("host");
-  for (const h of [fwdHost, host, u.host]) {
-    if (!h) continue;
-    const built = `https://${h}${u.pathname}${u.search}`;
-    if (!urls.includes(built)) urls.push(built);
+  const fwdProto = req.headers.get("x-forwarded-proto");
+  const hosts = [fwdHost, host, u.host].filter(Boolean) as string[];
+  const protos = Array.from(new Set([fwdProto || "https", "https", "http"]));
+
+  // Twilio may have been configured with or without the query string and with
+  // or without a trailing slash; the signature is computed on that exact string.
+  const paths = [
+    `${u.pathname}${u.search}`,
+    u.pathname,
+    u.pathname.endsWith("/") ? u.pathname.slice(0, -1) : `${u.pathname}/`,
+  ];
+
+  for (const proto of protos) {
+    for (const h of hosts) {
+      for (const p of paths) push(`${proto}://${h}${p}`);
+    }
   }
   return urls;
 }
@@ -82,10 +98,15 @@ async function validateTwilioSignature(
     .sort()
     .map((k) => `${k}${params[k]}`)
     .join("");
+  const tried: string[] = [];
   for (const url of candidateUrls(req)) {
+    tried.push(url);
     const expected = await hmacSha1Base64(authToken, `${url}${sortedConcat}`);
     if (timingSafeEqual(expected, signature)) return true;
   }
+  console.warn(
+    `twilio-inbound-sms: signature mismatch. candidates tried=${JSON.stringify(tried)}`,
+  );
   return false;
 }
 
