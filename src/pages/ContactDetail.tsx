@@ -571,7 +571,12 @@ export default function ContactDetail() {
     }
     return null;
   })();
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || lead.name || "Unnamed contact";
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    [lead.name, (lead as any).guest_name, rp.name, rp.full_name, rp.primary_name, rp.client_name, rp.guest_name, rp.attendee_name]
+      .find((c) => typeof c === "string" && c.trim())?.trim() ||
+    "Unnamed contact";
+
 
   return (
     <div className="space-y-6">
