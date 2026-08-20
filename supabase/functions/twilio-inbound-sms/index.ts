@@ -74,11 +74,24 @@ function candidateUrls(req: Request): string[] {
 
   // Twilio may have been configured with or without the query string and with
   // or without a trailing slash; the signature is computed on that exact string.
-  const paths = [
-    `${u.pathname}${u.search}`,
-    u.pathname,
-    u.pathname.endsWith("/") ? u.pathname.slice(0, -1) : `${u.pathname}/`,
-  ];
+  // Inside the edge runtime req.url has the public `/functions/v1` prefix
+  // stripped, so include both the stripped and public path forms.
+  const basePaths = new Set<string>();
+  const addPath = (p: string) => {
+    if (!p) return;
+    basePaths.add(p);
+    basePaths.add(p.endsWith("/") ? p.slice(0, -1) : `${p}/`);
+  };
+  const pathname = u.pathname;
+  addPath(pathname);
+  if (!pathname.startsWith("/functions/v1")) {
+    addPath(`/functions/v1${pathname.startsWith("/") ? "" : "/"}${pathname}`);
+  }
+  const paths: string[] = [];
+  for (const p of basePaths) {
+    paths.push(p);
+    if (u.search) paths.push(`${p}${u.search}`);
+  }
 
   for (const proto of protos) {
     for (const h of hosts) {
