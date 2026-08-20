@@ -15,6 +15,7 @@ import { supabase, Lead } from "@/lib/supabase";
 import { format, startOfDay, endOfDay, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { useFailedSyncs } from "@/hooks/useFailedSyncs";
+import { useInboundSmsResolver } from "@/hooks/useInboundSmsResolver";
 
 
 interface DueItem {
@@ -36,6 +37,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const loc = useLocation();
   const [items, setItems] = useState<DueItem[]>([]);
   const alertedRef = useRef(false);
+
+  // Attach any queued inbound SMS replies to their contacts (uses staff session).
+  useInboundSmsResolver();
 
   useEffect(() => {
     if (!user) return;
