@@ -66,3 +66,17 @@ export function notifyFollowupEmailFailed(name: string, email: string): Promise<
     `CRM ALERT: Follow-up EMAIL FAILED for ${name || "client"} at ${email || "unknown address"}. Check CRM Activity.`,
   );
 }
+
+/** Admin copy of a birthday SMS that Twilio accepted for the client. */
+export function notifyBirthdaySmsSent(name: string, phone: string, message: string): Promise<void> {
+  return sendAdminSms(
+    `BIRTHDAY SMS SENT: ${name || "Client"} — ${phone}\nMessage: ${message}`,
+  );
+}
+
+/** Sent instead of the copy when the client's birthday SMS failed. */
+export function notifyBirthdaySmsFailed(name: string): Promise<void> {
+  return sendAdminSms(
+    `BIRTHDAY SMS FAILED: ${name || "Client"} — check CRM Outreach History.`,
+  );
+}

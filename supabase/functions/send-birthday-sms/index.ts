@@ -1,6 +1,7 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizePhone } from "../_shared/followup-auth.ts";
+import { notifyBirthdaySmsSent, notifyBirthdaySmsFailed } from "../_shared/admin-notify.ts";
 
 interface Body {
   contactId: string;
@@ -24,13 +25,13 @@ const isPersonalStage = (stage?: string | null) => {
 const standardSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Happy Birthday ${f}!` : `Hi there! Happy Birthday!`;
-  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime!${SMS_SIGNATURE}`;
+  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. You can reply directly to this text or call us anytime.${SMS_SIGNATURE}`;
 };
 
 const personalSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Hi ${f},` : `Hi there!`;
-  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!${SMS_SIGNATURE}`;
+  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — you can reply directly to this text or call us anytime. Enjoy your day!${SMS_SIGNATURE}`;
 };
 
 async function sendNotificationEmail(opts: {
@@ -105,6 +106,7 @@ Deno.serve(async (req) => {
         person_kind: body.personKind,
         notes: "Invalid phone number",
       });
+      await notifyBirthdaySmsFailed(body.contactName);
       return jsonResponse({ success: false, error: "Invalid phone" }, 400);
     }
 
@@ -128,6 +130,10 @@ Deno.serve(async (req) => {
       year_sent: new Date().getFullYear(),
       person_kind: body.personKind,
     });
+
+    // Admin copy of the exact client message (admin phone only — never logged as
+    // client communication / Activity History).
+    await notifyBirthdaySmsSent(body.contactName, to, text);
 
     // Fire notification email to Michael's Gmail
     const notif = await sendNotificationEmail({
@@ -166,6 +172,7 @@ Deno.serve(async (req) => {
       } catch (logErr) {
         console.error("send-birthday-sms log failure:", logErr);
       }
+      await notifyBirthdaySmsFailed(body.contactName);
     }
     return jsonResponse({ success: false, error: msg }, 200);
   }
