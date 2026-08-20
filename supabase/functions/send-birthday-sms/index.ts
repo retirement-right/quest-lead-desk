@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
         person_kind: body.personKind,
         notes: "Invalid phone number",
       });
+      await notifyBirthdaySmsFailed(body.contactName);
       return jsonResponse({ success: false, error: "Invalid phone" }, 400);
     }
 
