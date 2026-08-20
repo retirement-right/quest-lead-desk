@@ -94,7 +94,7 @@ export async function loadLeadRecipient(
   leadId: string,
   channel: "email" | "sms",
   staffJwt: string,
-): Promise<{ recipient: string; firstName: string } | Response> {
+): Promise<{ recipient: string; firstName: string; fullName: string } | Response> {
   if (!staffJwt) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
@@ -117,6 +117,13 @@ export async function loadLeadRecipient(
   const firstName =
     String(rp.first_name || (lead.name ? String(lead.name).split(" ")[0] : "") || "").trim() ||
     "there";
+  const fullName =
+    String(
+      lead.name ||
+        [rp.first_name ?? "", rp.last_name ?? ""].join(" ").trim() ||
+        lead.email ||
+        "",
+    ).trim();
 
   if (channel === "email") {
     if (lead.do_not_email) {
@@ -124,10 +131,10 @@ export async function loadLeadRecipient(
     }
     const recipient = normalizeEmail(String(lead.email ?? ""));
     if (!recipient) return jsonResponse({ error: "Lead has no valid email" }, 400);
-    return { recipient, firstName };
+    return { recipient, firstName, fullName };
   }
 
   const recipient = normalizePhone(String(lead.phone ?? ""));
   if (!recipient) return jsonResponse({ error: "Lead has no valid phone" }, 400);
-  return { recipient, firstName };
+  return { recipient, firstName, fullName };
 }
