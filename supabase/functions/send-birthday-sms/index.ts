@@ -172,6 +172,7 @@ Deno.serve(async (req) => {
       } catch (logErr) {
         console.error("send-birthday-sms log failure:", logErr);
       }
+      await notifyBirthdaySmsFailed(body.contactName);
     }
     return jsonResponse({ success: false, error: msg }, 200);
   }
