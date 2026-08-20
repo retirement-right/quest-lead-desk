@@ -24,13 +24,13 @@ const isPersonalStage = (stage?: string | null) => {
 const standardSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Happy Birthday ${f}!` : `Hi there! Happy Birthday!`;
-  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. Reply or call us anytime!${SMS_SIGNATURE}`;
+  return `${opener} 🎂 Wishing you a wonderful day from all of us at Retirement Right. As a birthday gift, we'd love to offer you a complimentary retirement check-in this month — no agenda, just a friendly conversation. You can reply directly to this text or call us anytime.${SMS_SIGNATURE}`;
 };
 
 const personalSms = (firstName: string) => {
   const f = (firstName ?? "").trim();
   const opener = f.length > 0 ? `Hi ${f},` : `Hi there!`;
-  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — we're always here. Enjoy your day!${SMS_SIGNATURE}`;
+  return `${opener} it's Michael Eberhardt at Retirement Right 🎉 Just wanted to wish you a very Happy Birthday today! Hope it's a great one. If there's anything we can do for you this month — even just a quick check-in on your retirement plan — you can reply directly to this text or call us anytime. Enjoy your day!${SMS_SIGNATURE}`;
 };
 
 async function sendNotificationEmail(opts: {
