@@ -394,16 +394,37 @@ Deno.serve(async (req) => {
   }
 
 
+  if (status === "cancelled") {
+    console.log("cancellation handled", JSON.stringify({
+      email, match_type: matchType, matched_log_id: matchedLogId,
+      matched_appointment_at: matchedAppointmentIso, skipped: skippedReason,
+      error: processError,
+    }));
+  }
+
   return new Response(
     JSON.stringify({
       success: !processError,
       duplicate,
       skipped: skippedReason,
       log_id: logId,
+      status,
+      cancellation: status === "cancelled"
+        ? {
+            matched: !!matchType,
+            match_type: matchType,
+            matched_log_id: matchedLogId,
+            matched_contact_name: matchedName,
+            matched_contact_email: email,
+            matched_appointment_at: matchedAppointmentIso,
+            cancelled: !processError && !skipForward,
+          }
+        : undefined,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
       error: processError,
     }),
+
     { status: processError ? 502 : 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
