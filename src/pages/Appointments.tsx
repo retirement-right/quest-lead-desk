@@ -110,7 +110,10 @@ export default function Appointments() {
 
   // Fetch BookedIN appointments via the Cloud edge function with retry/backoff.
   const fetchBookedRows = useCallback(
-    async (accessToken: string, maxAttempts = 3): Promise<BookedInAppointmentRow[]> => {
+    async (
+      accessToken: string,
+      maxAttempts = 3,
+    ): Promise<{ appointments: BookedInAppointmentRow[]; cancellations: BookedInAppointmentRow[] }> => {
       let lastErr: string | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const { data, error } = await cloudSupabase.functions.invoke(
@@ -118,7 +121,7 @@ export default function Appointments() {
           { headers: { Authorization: `Bearer ${accessToken}` } },
         );
         if (!error && isBookedInAppointmentsResponse(data)) {
-          return data.appointments;
+          return { appointments: data.appointments, cancellations: data.cancellations ?? [] };
         }
         lastErr = error?.message ?? "Unexpected response from BookedIN service";
         if (attempt < maxAttempts) {
@@ -129,6 +132,7 @@ export default function Appointments() {
     },
     [],
   );
+
 
   const loadAppointments = useCallback(async () => {
     setLoading(true);
