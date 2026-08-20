@@ -154,14 +154,15 @@ export default function ContactDetail() {
 
   const loadActivity = async () => {
     if (!id) return;
-    const { data, error } = await cloudSupabase
-      .from("contact_activity" as any)
-      .select("*")
-      .eq("lead_id", id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (!error) setActivity((data ?? []) as any[]);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const { data, error } = await cloudSupabase.functions.invoke("contact-activity", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: { action: "list", leadId: id },
+    });
+    if (!error) setActivity(((data as any)?.activity ?? []) as any[]);
   };
+
 
   useEffect(() => {
     if (!id) return;
@@ -269,15 +270,20 @@ export default function ContactDetail() {
     }
     if (data) setLead(data as Lead);
     if (stageChanged) {
-      const { data: { user } } = await cloudSupabase.auth.getUser();
-      await cloudSupabase.from("contact_activity" as any).insert({
-        lead_id: id,
-        type: "status_change",
-        channel: "status",
-        body: `${stageToLabel(prevStage)} → ${stageToLabel(newStage)}`,
-        status: "ok",
-        created_by: user?.id ?? null,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await cloudSupabase.functions.invoke("contact-activity", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: {
+            action: "log",
+            leadId: id,
+            type: "status_change",
+            channel: "status",
+            body: `${stageToLabel(prevStage)} → ${stageToLabel(newStage)}`,
+            status: "ok",
+          },
+        });
+      }
       await loadActivity();
     }
     toast.success("Contact saved");
@@ -285,19 +291,25 @@ export default function ContactDetail() {
 
   const logActivity = async (entry: { channel: string; recipient: string; body: string; status: string; error?: string }) => {
     if (!id) return;
-    const { data: { user } } = await cloudSupabase.auth.getUser();
-    await cloudSupabase.from("contact_activity" as any).insert({
-      lead_id: id,
-      type: "manual_send",
-      channel: entry.channel,
-      recipient: entry.recipient,
-      body: entry.body,
-      status: entry.status,
-      error: entry.error ?? null,
-      created_by: user?.id ?? null,
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      await cloudSupabase.functions.invoke("contact-activity", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          action: "log",
+          leadId: id,
+          type: "manual_send",
+          channel: entry.channel,
+          recipient: entry.recipient,
+          body: entry.body,
+          status: entry.status,
+          error: entry.error ?? null,
+        },
+      });
+    }
     await loadActivity();
   };
+
 
   const staffAuthHeaders = async (): Promise<Record<string, string> | null> => {
     const { data: { session } } = await supabase.auth.getSession();

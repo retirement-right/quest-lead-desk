@@ -17,7 +17,9 @@ export function jsonResponse(body: unknown, status = 200) {
  *  Uses the LeadJig publishable key — not the service role — so this works
  *  even when LEADJIG_SERVICE_ROLE_KEY is stale. JWT validation only needs
  *  to call /auth/v1/user, which the anon key permits. */
-export async function requireStaffAuth(req: Request): Promise<{ userId: string } | Response> {
+export async function requireStaffAuth(
+  req: Request,
+): Promise<{ userId: string; jwt: string; email: string | null } | Response> {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) {
     return jsonResponse({ error: "Unauthorized" }, 401);
@@ -30,21 +32,42 @@ export async function requireStaffAuth(req: Request): Promise<{ userId: string }
   if (error || !user) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
-  return { userId: user.id };
+  return { userId: user.id, jwt, email: user.email ?? null };
 }
 
-/** Cron/scheduler only — not callable from the browser. */
-export function requireCronSecret(req: Request): Response | null {
-  const secret = Deno.env.get("PROCESS_FOLLOWUPS_SECRET");
-  if (!secret) {
-    return jsonResponse({ error: "Scheduler secret not configured" }, 500);
-  }
+
+/** Cron/scheduler only — not callable from the browser.
+ *  The expected secret lives in public.internal_secrets (service-role only) so
+ *  the pg_cron job can read the very same value; an env override is honoured
+ *  first when present. Constant-time-ish compare on equal lengths. */
+export async function requireCronSecret(req: Request): Promise<Response | null> {
   const provided = req.headers.get("x-cron-secret") ?? "";
-  if (provided !== secret) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!provided) return jsonResponse({ error: "Unauthorized" }, 401);
+
+  let expected = Deno.env.get("PROCESS_FOLLOWUPS_SECRET") ?? "";
+  if (!expected) {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return jsonResponse({ error: "Scheduler secret not configured" }, 500);
+    const admin = createClient(url, key, { auth: { persistSession: false } });
+    const { data, error } = await admin
+      .from("internal_secrets")
+      .select("secret")
+      .eq("name", "process_followups")
+      .maybeSingle();
+    if (error || !data?.secret) {
+      return jsonResponse({ error: "Scheduler secret not configured" }, 500);
+    }
+    expected = data.secret as string;
   }
+
+  if (provided.length !== expected.length) return jsonResponse({ error: "Unauthorized" }, 401);
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  if (diff !== 0) return jsonResponse({ error: "Unauthorized" }, 401);
   return null;
 }
+
 
 export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/[^\d+]/g, "");
@@ -64,20 +87,27 @@ export function normalizeEmail(raw: string): string | null {
   return e;
 }
 
+/** Reads the lead through the caller's own LeadJig staff session (publishable
+ *  key + staff JWT), so no service-role key is required and LeadJig RLS still
+ *  applies exactly as it does in the browser. */
 export async function loadLeadRecipient(
   leadId: string,
   channel: "email" | "sms",
+  staffJwt: string,
 ): Promise<{ recipient: string; firstName: string } | Response> {
-  const serviceKey = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY");
-  if (!serviceKey) {
-    return jsonResponse({ error: "Server not configured" }, 500);
+  if (!staffJwt) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
-  const admin = createClient(LEADJIG_URL, serviceKey);
-  const { data: lead, error } = await admin
+  const client = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${staffJwt}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: lead, error } = await client
     .from("leadjig_leads")
     .select("id, name, email, phone, do_not_email, raw_payload")
     .eq("id", leadId)
     .maybeSingle();
+
 
   if (error || !lead) {
     return jsonResponse({ error: "Lead not found" }, 404);

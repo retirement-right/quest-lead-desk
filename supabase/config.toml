@@ -29,3 +29,6 @@ verify_jwt = false
 [functions.resolve-inbound-sms]
 verify_jwt = false
 
+
+[functions.contact-activity]
+verify_jwt = false
