@@ -115,8 +115,13 @@ Deno.serve(async (req) => {
     return textResponse("Method not allowed", 405);
   }
 
-  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  if (!authToken) {
+  // Primary token, plus an optional secondary token when the inbound number
+  // lives on a different Twilio account/subaccount than outbound sending.
+  const authTokens = [
+    Deno.env.get("TWILIO_AUTH_TOKEN"),
+    Deno.env.get("TWILIO_AUTH_TOKEN_INBOUND"),
+  ].filter((t): t is string => !!t);
+  if (authTokens.length === 0) {
     console.error("twilio-inbound-sms: TWILIO_AUTH_TOKEN not configured");
     return textResponse("Server not configured", 500);
   }
