@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "leadId is required" }, 400);
     }
 
-    const lead = await loadLeadRecipient(leadId, "sms");
+    const lead = await loadLeadRecipient(leadId, "sms", auth.jwt);
     if (lead instanceof Response) return lead;
     const { recipient: to, firstName } = lead;
 
