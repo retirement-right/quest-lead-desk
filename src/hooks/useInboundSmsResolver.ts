@@ -73,6 +73,7 @@ export function useInboundSmsResolver() {
         if (matches.length === 0 || cancelled) return;
 
         await cloudSupabase.functions.invoke("resolve-inbound-sms", {
+          headers,
           body: { action: "resolve", matches },
         });
       } catch {
