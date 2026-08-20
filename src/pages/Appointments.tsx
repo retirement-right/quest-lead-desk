@@ -198,7 +198,8 @@ export default function Appointments() {
     const bookedSeen = new Set<string>();
     const bookedLeads: Lead[] = [];
     const bookedKeys = new Set<string>(); // email|isoTs for matching against leadjig
-    const bookedEmails = new Set<string>(); // any email that has a bookedin appointment
+    const bookedDayKeys = new Set<string>(); // email|AZ day, to suppress same-day duplicates
+
     const bookedContactByEmail = new Map<string, { name: string | null; phone: string | null; raw: Record<string, unknown> | null }>();
     for (const row of bookedRows) {
       const email = (row.contact_email ?? "").trim().toLowerCase();
@@ -219,8 +220,9 @@ export default function Appointments() {
       bookedSeen.add(dedupeKey);
       if (email) {
         bookedKeys.add(dedupeKey);
-        bookedEmails.add(email);
+        bookedDayKeys.add(`${email}|${phxDayKey(date)}`);
       }
+
 
       const matched = email ? byEmail.get(email) : undefined;
       const name = textOrNull(matched?.name) || bookedInName(row);
@@ -242,15 +244,21 @@ export default function Appointments() {
     }
 
     // 3) Add leadjig appointments not already represented by a bookedin row.
-    //    BookedIN is the source of truth: if an email has ANY bookedin
-    //    appointment, suppress that email's leadjig-only entries so a stale
-    //    leadjig appointment_at can't fight a newer bookedin one.
+    //    Only suppress a leadjig entry when BookedIN already has an
+    //    appointment for the same email at the same time (or on the same
+    //    Arizona day). Appointments booked directly in the CRM for a contact
+    //    who also has BookedIN history must still show.
     const extraLeadjig = leadjigAll.filter((l) => {
       const email = (l.email ?? "").trim().toLowerCase();
-      const ts = l.appointment_at ? new Date(l.appointment_at).toISOString() : "";
-      if (email && bookedEmails.has(email)) return false;
-      return !bookedKeys.has(`${email}|${ts}`);
+      if (!l.appointment_at) return false;
+      const d = new Date(l.appointment_at);
+      if (isNaN(d.getTime())) return false;
+      const ts = d.toISOString();
+      if (bookedKeys.has(`${email}|${ts}`)) return false;
+      if (email && bookedDayKeys.has(`${email}|${phxDayKey(d)}`)) return false;
+      return true;
     }).map((l) => {
+
       const email = (l.email ?? "").trim().toLowerCase();
       const bookedContact = email ? bookedContactByEmail.get(email) : undefined;
       return {
