@@ -21,11 +21,35 @@ export default function Login() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(
+        error.message === "Invalid login credentials"
+          ? "Email or password is incorrect. Use “Forgot password?” to reset it."
+          : error.message,
+      );
+    } else toast.success("Welcome back");
+  };
+
+  const onReset = async () => {
+    const target = email.trim().toLowerCase();
+    if (!target) {
+      toast.error("Enter your email first");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
     setLoading(false);
     if (error) toast.error(error.message);
-    else toast.success("Welcome back");
+    else toast.success("Reset link sent — check your email");
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -62,7 +86,17 @@ export default function Login() {
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Sign in
             </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="w-full text-sm"
+              onClick={onReset}
+              disabled={loading}
+            >
+              Forgot password?
+            </Button>
           </form>
+
         </CardContent>
       </Card>
     </div>
