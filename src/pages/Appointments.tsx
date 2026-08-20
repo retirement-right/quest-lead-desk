@@ -84,10 +84,11 @@ const bookedInName = (row: BookedInAppointmentRow) =>
 
 const isBookedInAppointmentsResponse = (
   value: unknown,
-): value is { appointments: BookedInAppointmentRow[] } =>
+): value is { appointments: BookedInAppointmentRow[]; cancellations?: BookedInAppointmentRow[] } =>
   typeof value === "object" &&
   value !== null &&
   Array.isArray((value as { appointments?: unknown }).appointments);
+
 
 interface Appt {
   lead: Lead;
