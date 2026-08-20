@@ -35,14 +35,23 @@ import { cn } from "@/lib/utils";
 import { BirthdaysThisWeekCard } from "@/components/BirthdaysThisWeekCard";
 
 const fullName = (l: Lead) => {
-  const rp = (l as any).raw_payload;
-  if (rp) {
-    const fromPayload = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
-    if (fromPayload) return fromPayload;
-  }
-  if ((l as any).name) return (l as any).name as string;
+  const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
+  const fromPayload = [rp.first_name, rp.last_name].filter(Boolean).join(" ");
+  if (fromPayload.trim()) return fromPayload.trim();
+  const candidates = [
+    (l as any).name,
+    (l as any).guest_name,
+    rp.name,
+    rp.full_name,
+    rp.primary_name,
+    rp.client_name,
+    rp.guest_name,
+    rp.attendee_name,
+  ];
+  for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim();
   return "—";
 };
+
 
 // Raw lifecycle_stage badge — distinct from the human "Status" column.
 // Color picked per stage so hot leads pop visually.
