@@ -84,23 +84,41 @@ export function useInboundSmsResolver() {
         }
         if (tails.size === 0) return;
 
-        const matches: { id: string; lead_id: string }[] = [];
-        for (const [tail, ids] of tails) {
+        // Digits-only comparison can't be expressed in PostgREST, so page the
+        // leads in and index them by every phone tail they carry (main column
+        // plus raw_payload fallbacks). Newest lead wins on duplicates.
+        const byTail = new Map<string, { id: string; created_at: string | null }>();
+        const CHUNK = 1000;
+        let from = 0;
+        while (!cancelled) {
           const { data: leads, error } = await supabase
             .from("leadjig_leads")
-            .select("id, phone, created_at")
-            .ilike("phone", `%${tail.slice(-7)}%`)
-            .limit(50);
-          if (error || cancelled) continue;
-          const hits = (leads ?? []).filter((l: any) => phoneTail(l.phone) === tail);
-          if (hits.length === 0) continue;
-          hits.sort(
-            (a: any, b: any) =>
-              new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
-          );
-          const leadId = hits[0].id as string;
-          for (const id of ids) matches.push({ id, lead_id: leadId });
+            .select("id, phone, raw_payload, created_at")
+            .range(from, from + CHUNK - 1);
+          if (error) return;
+          const batch = (leads ?? []) as any[];
+          for (const lead of batch) {
+            for (const t of leadPhoneTails(lead)) {
+              if (!tails.has(t)) continue;
+              const prev = byTail.get(t);
+              const newer =
+                !prev ||
+                new Date(lead.created_at ?? 0).getTime() > new Date(prev.created_at ?? 0).getTime();
+              if (newer) byTail.set(t, { id: lead.id, created_at: lead.created_at ?? null });
+            }
+          }
+          if (batch.length < CHUNK) break;
+          from += CHUNK;
         }
+        if (cancelled) return;
+
+        const matches: { id: string; lead_id: string }[] = [];
+        for (const [tail, ids] of tails) {
+          const hit = byTail.get(tail);
+          if (!hit) continue;
+          for (const id of ids) matches.push({ id, lead_id: hit.id });
+        }
+
         if (matches.length === 0 || cancelled) return;
 
         await cloudSupabase.functions.invoke("resolve-inbound-sms", {
