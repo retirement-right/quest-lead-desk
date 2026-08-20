@@ -17,7 +17,9 @@ export function jsonResponse(body: unknown, status = 200) {
  *  Uses the LeadJig publishable key — not the service role — so this works
  *  even when LEADJIG_SERVICE_ROLE_KEY is stale. JWT validation only needs
  *  to call /auth/v1/user, which the anon key permits. */
-export async function requireStaffAuth(req: Request): Promise<{ userId: string } | Response> {
+export async function requireStaffAuth(
+  req: Request,
+): Promise<{ userId: string; jwt: string; email: string | null } | Response> {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) {
     return jsonResponse({ error: "Unauthorized" }, 401);
@@ -30,8 +32,9 @@ export async function requireStaffAuth(req: Request): Promise<{ userId: string }
   if (error || !user) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
-  return { userId: user.id };
+  return { userId: user.id, jwt, email: user.email ?? null };
 }
+
 
 /** Cron/scheduler only — not callable from the browser. */
 export function requireCronSecret(req: Request): Response | null {
