@@ -14,13 +14,17 @@ const WEBHOOK_SECRET = Deno.env.get("BOOKEDIN_WEBHOOK_SECRET")!;
 
 type AppointmentStatus = "booked" | "rescheduled" | "cancelled";
 
-function normalizeStatus(s: string): AppointmentStatus | null {
+// Tolerant status normalization. Cancellation and reschedule keywords are
+// checked first (they must never be misread as a new booking); anything else
+// — including wordy Zapier values like "Appointment Booked", "New Booking",
+// or an empty status on a new-appointment event — is treated as "booked".
+function normalizeStatus(s: string): AppointmentStatus {
   const v = s.trim().toLowerCase();
-  if (["booked", "created", "new", "confirmed"].includes(v)) return "booked";
-  if (["rescheduled", "reschedule", "updated"].includes(v)) return "rescheduled";
-  if (["cancelled", "canceled", "cancel"].includes(v)) return "cancelled";
-  return null;
+  if (/cancel/.test(v)) return "cancelled";
+  if (/reschedul/.test(v)) return "rescheduled";
+  return "booked";
 }
+
 
 // Parse dates that may arrive as ISO or as human-readable strings like
 // "Tuesday, Apr 21, 2026 at 10:00 AM". Returns ISO string or null.
