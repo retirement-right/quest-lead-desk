@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const email = String(
+  let email = String(
     payload.contact_email || payload.email || payload.client_email || ""
   ).trim().toLowerCase();
   const firstName = String(
@@ -195,11 +195,6 @@ Deno.serve(async (req) => {
   const statusRaw = String(payload.appointment_status || payload.status || payload.event || "").trim();
   const notes = String(payload.notes || payload.note || "").trim() || null;
 
-  if (!email) {
-    return new Response(JSON.stringify({ error: "contact_email is required" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   const status = normalizeStatus(statusRaw);
   if (!status) {
     return new Response(JSON.stringify({ error: `unknown appointment_status: ${statusRaw}` }), {
@@ -211,7 +206,65 @@ Deno.serve(async (req) => {
 
   const cloud = createClient(CLOUD_URL, CLOUD_SERVICE_ROLE);
 
+  // Cancellation with no client email (and possibly no name): resolve the
+  // contact strictly by an exact appointment time match against prior BookedIN
+  // appointments. Booked/rescheduled handling is untouched — those still
+  // require contact_email.
+  let timeOnlyMatch = false;
+  if (!email && status === "cancelled" && apptDateIso) {
+    const { rows, error: lookupErr } = await findByExactTimeOnly(cloud, apptDateIso);
+    if (rows.length === 1) {
+      timeOnlyMatch = true;
+      email = String(rows[0].contact_email || "").trim().toLowerCase();
+    }
+    if (!timeOnlyMatch) {
+      const reason = lookupErr
+        ? `cancelled with no email; exact-time lookup failed: ${lookupErr}`
+        : `cancelled with no email/name; ${rows.length} BookedIN appointment(s) matched exact time ${apptDateIso}; manual review required`;
+      console.warn("cancellation needs manual review:", reason);
+      const { data: reviewRow } = await cloud
+        .from("bookedin_appointments")
+        .insert({
+          contact_email: "unknown@bookedin.local",
+          contact_name: name || null,
+          contact_phone: phone || null,
+          appointment_date: apptDateIso,
+          appointment_status: status,
+          notes,
+          raw_payload: payload,
+          processed_at: new Date().toISOString(),
+          process_error: reason,
+        })
+        .select("id")
+        .single();
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: reason,
+          log_id: reviewRow?.id ?? null,
+          status,
+          cancellation: {
+            matched: false,
+            match_type: null,
+            candidates: rows.length,
+            matched_appointment_at: apptDateIso,
+            cancelled: false,
+            manual_review: true,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
+  if (!email) {
+    return new Response(JSON.stringify({ error: "contact_email is required" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const existing = await findDuplicateLog(cloud, email, status, apptDateIso);
+
   const alreadyProcessed =
     !!existing?.processed_at && isProcessedOk(existing.process_error);
 
