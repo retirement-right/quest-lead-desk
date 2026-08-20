@@ -621,6 +621,8 @@ Deno.serve(async (req) => {
             cancelled: !processError && !skipForward,
           }
         : undefined,
+      email_recovered_via: emailRecoveredVia,
+      contact_email: email,
       proxy_status: proxyStatus,
       proxy_response: proxyBody,
       error: processError,
