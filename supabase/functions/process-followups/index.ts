@@ -98,8 +98,9 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const cronDenied = requireCronSecret(req);
+  const cronDenied = await requireCronSecret(req);
   if (cronDenied) return cronDenied;
+
 
   const summary = { scanned: 0, sent: 0, skipped: 0, errors: [] as string[] };
 

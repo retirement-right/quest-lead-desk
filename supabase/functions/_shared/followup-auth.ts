@@ -36,18 +36,38 @@ export async function requireStaffAuth(
 }
 
 
-/** Cron/scheduler only — not callable from the browser. */
-export function requireCronSecret(req: Request): Response | null {
-  const secret = Deno.env.get("PROCESS_FOLLOWUPS_SECRET");
-  if (!secret) {
-    return jsonResponse({ error: "Scheduler secret not configured" }, 500);
-  }
+/** Cron/scheduler only — not callable from the browser.
+ *  The expected secret lives in public.internal_secrets (service-role only) so
+ *  the pg_cron job can read the very same value; an env override is honoured
+ *  first when present. Constant-time-ish compare on equal lengths. */
+export async function requireCronSecret(req: Request): Promise<Response | null> {
   const provided = req.headers.get("x-cron-secret") ?? "";
-  if (provided !== secret) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!provided) return jsonResponse({ error: "Unauthorized" }, 401);
+
+  let expected = Deno.env.get("PROCESS_FOLLOWUPS_SECRET") ?? "";
+  if (!expected) {
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return jsonResponse({ error: "Scheduler secret not configured" }, 500);
+    const admin = createClient(url, key, { auth: { persistSession: false } });
+    const { data, error } = await admin
+      .from("internal_secrets")
+      .select("secret")
+      .eq("name", "process_followups")
+      .maybeSingle();
+    if (error || !data?.secret) {
+      return jsonResponse({ error: "Scheduler secret not configured" }, 500);
+    }
+    expected = data.secret as string;
   }
+
+  if (provided.length !== expected.length) return jsonResponse({ error: "Unauthorized" }, 401);
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  if (diff !== 0) return jsonResponse({ error: "Unauthorized" }, 401);
   return null;
 }
+
 
 export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/[^\d+]/g, "");
