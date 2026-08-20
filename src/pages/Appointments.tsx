@@ -240,9 +240,11 @@ export default function Appointments() {
       const date = new Date(appointmentAt);
       if (isNaN(date.getTime())) continue;
       const ts = date.toISOString();
+      if (isCancelled(email, ts)) continue;
       const dedupeKey = `${email}|${ts}`;
       if (bookedSeen.has(dedupeKey)) continue;
       bookedSeen.add(dedupeKey);
+
       if (email) {
         bookedKeys.add(dedupeKey);
         bookedDayKeys.add(`${email}|${phxDayKey(date)}`);
