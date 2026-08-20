@@ -200,11 +200,8 @@ Deno.serve(async (req) => {
   const notes = String(payload.notes || payload.note || "").trim() || null;
 
   const status = normalizeStatus(statusRaw);
-  if (!status) {
-    return new Response(JSON.stringify({ error: `unknown appointment_status: ${statusRaw}` }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  console.log("status normalized", JSON.stringify({ raw: statusRaw, status }));
+
 
   const apptDateIso = parseFlexibleDate(apptDateRaw);
 
