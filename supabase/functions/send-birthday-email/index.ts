@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       sent_by: sentBy,
       year_sent: new Date().getFullYear(),
       person_kind: body.personKind,
-      notes: `BCC: ${BCC_EMAIL}`,
+      notes: personalization.bcc ? `BCC: ${bcc}` : "No BCC (recipient is admin address)",
     });
 
     return jsonResponse({ success: true });
