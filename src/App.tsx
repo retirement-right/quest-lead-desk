@@ -38,6 +38,7 @@ const App = () => (
             <Route path="/contacts/:id" element={<RequireAuth><ContactDetail /></RequireAuth>} />
             <Route path="/failed-syncs" element={<RequireAuth><FailedSyncs /></RequireAuth>} />
             <Route path="/birthdays" element={<RequireAuth><Birthdays /></RequireAuth>} />
+            <Route path="/admin/bulk-crm-upload" element={<RequireAuth><BulkCrmUpload /></RequireAuth>} />
             <Route path="/admin/bookedin-backfill" element={<RequireAuth><BookedinBackfill /></RequireAuth>} />
 
 
