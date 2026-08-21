@@ -575,7 +575,10 @@ export default function ContactDetail() {
     [firstName, lastName].filter(Boolean).join(" ").trim() ||
     [lead.name, (lead as any).guest_name, rp.name, rp.full_name, rp.primary_name, rp.client_name, rp.guest_name, rp.attendee_name]
       .find((c) => typeof c === "string" && c.trim())?.trim() ||
+    nameFromEmail(lead.email ?? rp.email) ||
     "Unnamed contact";
+
+
 
 
   return (
