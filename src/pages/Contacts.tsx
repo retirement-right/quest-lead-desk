@@ -33,6 +33,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BirthdaysThisWeekCard } from "@/components/BirthdaysThisWeekCard";
+import { nameFromEmail } from "@/lib/nameFromEmail";
+
 
 const fullName = (l: Lead) => {
   const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
@@ -49,8 +51,9 @@ const fullName = (l: Lead) => {
     rp.attendee_name,
   ];
   for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim();
-  return "—";
+  return nameFromEmail(l.email ?? rp.email) ?? "—";
 };
+
 
 
 // Raw lifecycle_stage badge — distinct from the human "Status" column.
