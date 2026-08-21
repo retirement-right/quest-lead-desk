@@ -16,6 +16,7 @@ import FailedSyncs from "./pages/FailedSyncs";
 import Birthdays from "./pages/Birthdays";
 import NotFound from "./pages/NotFound.tsx";
 import BulkCrmUpload from "./pages/BulkCrmUpload";
+import BookedinBackfill from "./pages/BookedinBackfill";
 
 
 const queryClient = new QueryClient();
