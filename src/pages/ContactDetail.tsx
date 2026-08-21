@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, CalendarIcon, Download, FileScan, Loader2, Mail, MessageSquare, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
+import { nameFromEmail } from "@/lib/nameFromEmail";
+
 
 const toLocalInput = (iso: string | null) => {
   if (!iso) return "";
