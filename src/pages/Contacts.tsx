@@ -33,6 +33,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BirthdaysThisWeekCard } from "@/components/BirthdaysThisWeekCard";
+import { nameFromEmail } from "@/lib/nameFromEmail";
+
 
 const fullName = (l: Lead) => {
   const rp = ((l as any).raw_payload ?? {}) as Record<string, any>;
