@@ -49,8 +49,9 @@ const fullName = (l: Lead) => {
     rp.attendee_name,
   ];
   for (const c of candidates) if (typeof c === "string" && c.trim()) return c.trim();
-  return "—";
+  return nameFromEmail(l.email ?? rp.email) ?? "—";
 };
+
 
 
 // Raw lifecycle_stage badge — distinct from the human "Status" column.
