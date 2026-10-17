@@ -1,6 +1,8 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizeEmail } from "../_shared/followup-auth.ts";
+import { marketingEmailAllowed, MARKETING_BLOCKED } from "../_shared/marketing-policy.ts";
+import { WEBSITE_PUBLISHABLE_KEY } from "../_shared/website-rest.ts";
 
 interface Body {
   contactId: string;
@@ -48,13 +50,20 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+    return jsonResponse(MARKETING_BLOCKED);
+  }
+
+  const cloudUrl = Deno.env.get("SUPABASE_URL");
+  const cloudKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!cloudUrl || !cloudKey) return jsonResponse({ success: false, error: "Activity storage unavailable" }, 503);
+  const admin = createClient(cloudUrl, cloudKey);
   let body: Body | null = null;
   let sentBy: string | null = null;
-  let to = "";
+  let to: string | null = "";
 
   try {
-    const jwt = req.headers.get("Authorization")!.slice(7).trim();
+    const jwt = auth.jwt;
     const cli = createClient("https://uoneplysuvmaygbrbswd.supabase.co", Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1");
     const { data: u } = await cli.auth.getUser(jwt);
     sentBy = u?.user?.email ?? null;
@@ -83,6 +92,9 @@ Deno.serve(async (req) => {
     const personalization: Record<string, unknown> = { to: [{ email: to }] };
     if (bcc && bcc !== to) personalization.bcc = [{ email: bcc }];
 
+    if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+      return jsonResponse(MARKETING_BLOCKED);
+    }
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, "Content-Type": "application/json" },

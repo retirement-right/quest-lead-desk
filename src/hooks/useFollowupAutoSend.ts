@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { supabase as cloudSupabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { canSendMarketingEmail } from "@/lib/marketingEmail";
 
 /**
  * Dispatches due auto-send follow-ups (Email / SMS) using the logged-in staff
@@ -12,7 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
  * (the stored service-role key is invalid, and the LeadJig-side proxy function
  * the scheduler calls is not deployed). So — exactly like the inbound-SMS
  * resolver — the work happens in the browser where a valid staff session lives.
- * Each send is marked on the lead immediately, so nothing goes out twice.
+ * Browser dispatch uses a conditional claim shared across open tabs. The repaired
+ * cron scanner is read-only and cannot race this dispatcher.
  */
 export function useFollowupAutoSend() {
   const { user } = useAuth();
@@ -65,18 +67,23 @@ export function useFollowupAutoSend() {
           const type = String(cp.followup_type).toLowerCase() as "email" | "sms";
           const recipient = String((type === "email" ? lead.email : lead.phone) ?? "").trim();
           if (!recipient) continue;
+          if (type === "email" && !(await canSendMarketingEmail(session.access_token))) continue;
+          if (cancelled) return;
 
           const sentAt = new Date().toISOString();
           // Claim the follow-up before sending so a second open tab can't resend.
-          const { error: claimErr } = await supabase
+          const { data: claimed, error: claimErr } = await supabase
             .from("leadjig_leads")
             .update({
               client_profile: { ...cp, followup_status: "Sent", followup_sent_at: sentAt },
             })
-            .eq("id", lead.id);
-          if (claimErr) continue;
+            .eq("id", lead.id)
+            .eq("client_profile", cp)
+            .select("id");
+          if (claimErr || !claimed?.length) continue;
 
           let errMsg: string | null = null;
+          let paused = false;
           try {
             const fn = type === "email" ? "send-followup-email" : "send-followup-sms";
             const { data, error } = await cloudSupabase.functions.invoke(fn, {
@@ -86,6 +93,7 @@ export function useFollowupAutoSend() {
               body: { leadId: lead.id, auto: true, clientName: lead.name ?? "" },
             });
             if (error) throw error;
+            paused = (data as { paused?: boolean } | null)?.paused === true;
             if (data && (data as any).success === false) {
               throw new Error((data as any).error || "Send failed");
             }
@@ -97,9 +105,12 @@ export function useFollowupAutoSend() {
               .update({
                 client_profile: { ...cp, followup_status: "Pending", followup_sent_at: null },
               })
-              .eq("id", lead.id);
+              .eq("id", lead.id)
+              .eq("client_profile", { ...cp, followup_status: "Sent", followup_sent_at: sentAt });
           }
 
+          // Suppression is not a send failure; retain Pending without activity spam.
+          if (paused) continue;
           await cloudSupabase.functions.invoke("contact-activity", {
             headers,
             body: {
