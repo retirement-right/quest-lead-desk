@@ -44,7 +44,7 @@ describe("browser scheduled marketing suppression", () => {
     mock.claim.mockResolvedValue({ data: [], error: null });
     renderHook(() => useFollowupAutoSend());
     await waitFor(() => expect(mock.claim).toHaveBeenCalled());
-    expect(mock.eq).toHaveBeenCalledWith("client_profile", cp);
+    expect(mock.eq).toHaveBeenCalledWith("client_profile", JSON.stringify(cp));
     expect(mock.invoke).not.toHaveBeenCalled();
   });
 

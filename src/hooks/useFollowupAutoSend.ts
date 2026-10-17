@@ -78,7 +78,7 @@ export function useFollowupAutoSend() {
               client_profile: { ...cp, followup_status: "Sent", followup_sent_at: sentAt },
             })
             .eq("id", lead.id)
-            .eq("client_profile", cp)
+            .eq("client_profile", JSON.stringify(cp))
             .select("id");
           if (claimErr || !claimed?.length) continue;
 
@@ -106,7 +106,7 @@ export function useFollowupAutoSend() {
                 client_profile: { ...cp, followup_status: "Pending", followup_sent_at: null },
               })
               .eq("id", lead.id)
-              .eq("client_profile", { ...cp, followup_status: "Sent", followup_sent_at: sentAt });
+              .eq("client_profile", JSON.stringify({ ...cp, followup_status: "Sent", followup_sent_at: sentAt }));
           }
 
           // Suppression is not a send failure; retain Pending without activity spam.
