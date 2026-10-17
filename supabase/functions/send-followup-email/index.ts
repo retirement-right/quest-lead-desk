@@ -1,10 +1,12 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import {
   jsonResponse,
   loadLeadRecipient,
   requireStaffAuth,
 } from "../_shared/followup-auth.ts";
 import { notifyFollowupEmailFailed } from "../_shared/admin-notify.ts";
+import { marketingEmailAllowed, MARKETING_BLOCKED } from "../_shared/marketing-policy.ts";
+import { WEBSITE_PUBLISHABLE_KEY } from "../_shared/website-rest.ts";
 
 interface Body {
   leadId?: string;
@@ -23,6 +25,10 @@ Deno.serve(async (req) => {
 
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
+
+  if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+    return jsonResponse(MARKETING_BLOCKED);
+  }
 
   let isAuto = false;
   let clientName = "";
@@ -53,6 +59,10 @@ Deno.serve(async (req) => {
 
     const text = `Hi ${firstName}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
 
+    // Recheck after recipient lookup, immediately before the provider boundary.
+    if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+      return jsonResponse(MARKETING_BLOCKED);
+    }
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
