@@ -1,7 +1,10 @@
 # Safe integration health audit
 
-- [ ] Trace CRM registrations, attribution, tracking, and operational health.
-- [ ] Inspect Social Insight organic posting, paid ads, registration URLs, and compliance safeguards.
-- [ ] Run strictly non-sending, read-only live checks and local regression tests.
-- [ ] Apply only evidenced, backward-compatible local improvements; no deployment.
-- [ ] Report tested findings, remaining verification blockers, and exact edits.
+- [x] Trace CRM registrations, attribution, tracking, and operational health.
+- [x] Inspect Social Insight organic posting, paid ads, registration URLs, and compliance safeguards.
+- [x] Run strictly non-sending, read-only live checks and local regression tests.
+- [x] Apply only evidenced, backward-compatible local improvements; no deployment.
+- [x] Report tested findings, remaining verification blockers, and exact edits.
+- [ ] Verify live website registration and attribution completeness — requires redacted source-project export or separate authorized non-sending access.
+- [ ] Verify Social Insight live pause/queue/paid-ad state and repair its safeguards — requires that project's chat; snapshots cannot update it.
+- [ ] Verify authenticated CRM read endpoints — requires accepted website staff session without entering auto-send layout.
