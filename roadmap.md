@@ -1,9 +1,12 @@
 # Safe integration health audit
 
 ## Scheduled follow-up and marketing pause repair
-- [ ] Inspect live scheduler logs, cron metadata, global setting contract, and all CRM sends.
-- [ ] Add local fail-closed marketing guards and a backwards-compatible scheduler repair.
-- [ ] Run non-sending mock tests and report deployment/external dependencies; leave cron, secrets, and records unchanged.
+- [x] Inspect live scheduler logs, cron metadata, global setting contract, and all CRM sends.
+- [x] Add local fail-closed marketing guards and a backwards-compatible read-only scheduler repair.
+- [x] Run non-sending mock tests and report deployment/external dependencies; leave cron, secrets, and records unchanged.
+- [ ] Validate live authoritative website pause reads — requires an accepted website admin/moderator session or working scheduler read credential.
+- [ ] Deploy repaired functions and verify live 404 removal — blocked by the explicit no-deploy restriction.
+- [ ] Restore unattended scheduled dispatch — requires separate authorization, backlog review, working scheduler credentials and shared atomic claims.
 
 - [x] Trace CRM registrations, attribution, tracking, and operational health.
 - [x] Inspect Social Insight organic posting, paid ads, registration URLs, and compliance safeguards.
