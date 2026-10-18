@@ -1,5 +1,10 @@
 # Safe integration health audit
 
+## Secure cross-project authentication audit — 2026-10-18
+- [ ] Inspect current credential names, supported runtime authentication, website contracts and CRM receiver without reading secret values.
+- [ ] Re-run non-sending adapter tests and inspect browser startup queued SMS exposure without loading an authenticated auto-send layout.
+- [ ] Document supported mechanism or exact minimum owner setup, deployment decision, and publishing blockers.
+
 ## Documented website read-only scheduler adapter
 - [x] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
 - [x] Run 138 passing mock regressions, safely deploy only process-followups, and verify held fail-closed live behavior; document missing website credential blocker.
