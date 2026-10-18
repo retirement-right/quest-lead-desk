@@ -1,9 +1,11 @@
 # Safe integration health audit
 
 ## Secure cross-project authentication audit — 2026-10-18
-- [ ] Inspect current credential names, supported runtime authentication, website contracts and CRM receiver without reading secret values.
-- [ ] Re-run non-sending adapter tests and inspect browser startup queued SMS exposure without loading an authenticated auto-send layout.
-- [ ] Document supported mechanism or exact minimum owner setup, deployment decision, and publishing blockers.
+- [x] Inspect current credential names, supported runtime authentication, website contracts and CRM receiver without reading secret values; no supported service-key or platform-auth fallback exists for the dedicated website contract.
+- [x] Re-run 137 non-sending tests and inspect browser startup queued SMS exposure without loading an authenticated auto-send layout; SMS can dispatch despite email pause.
+- [x] Document exact minimum owner setup, fresh website 503/CRM 401 evidence, no-deployment decision and publishing blockers in the Files audit report.
+- [ ] Complete matching-auth live recovery — owner must securely configure website shared credential and receiver URL; original private value is unavailable to this audit.
+- [ ] Make browser publication send-neutral — requires separate authorized changes to mount-triggered SMS dispatch and provider guards; publication withheld.
 
 ## Documented website read-only scheduler adapter
 - [x] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
