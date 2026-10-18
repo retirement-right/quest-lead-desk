@@ -1,5 +1,12 @@
 # Safe integration health audit
 
+## Website forwarding receiver and credential repair
+- [x] Inspect latest website outbox/diagnostic contract and CRM read authentication.
+- [x] Implement and safely deploy authenticated idempotent check-in/unsubscribe receiver with consent suppression and no automatic sends.
+- [x] Run 82 non-sending regression tests and 2 Deno runtime tests; verify live unauthorized rejection, email method guards, service-only schema and unchanged appointment totals; document deployment and website contract.
+- [ ] Complete website authenticated forwarding and read-credential repair — website sender lacks authentication and has no matching service-read endpoint; requires changes in website project and private credential equality validation, without enabling delivery.
+- [ ] Verify live accepted/duplicate/conflict persistence and real multi-session races — requires authorized isolated fixtures, not production contacts or held outbox release.
+
 ## Scheduled follow-up and marketing pause repair
 - [x] Complete authorized production deployment safety checks and deploy only the three repaired email/scheduler functions; non-sending reachability/auth checks and the existing 16:15 UTC read-only cron callback verified. No browser publication or changes to cron, pause, secrets, or records.
 - [x] Inspect live scheduler logs, cron metadata, global setting contract, and all CRM sends.

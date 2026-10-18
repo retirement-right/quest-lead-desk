@@ -7,6 +7,7 @@ import {
 import { notifyFollowupEmailFailed } from "../_shared/admin-notify.ts";
 import { marketingEmailAllowed, MARKETING_BLOCKED } from "../_shared/marketing-policy.ts";
 import { WEBSITE_PUBLISHABLE_KEY } from "../_shared/website-rest.ts";
+import { cloudEmailRecipientAllowed } from "../_shared/cloud-email-suppression.ts";
 
 interface Body {
   leadId?: string;
@@ -60,7 +61,8 @@ Deno.serve(async (req) => {
     const text = `Hi ${firstName}, this is Michael Eberhardt from Retirement Right. I wanted to follow up with you regarding your retirement planning. Please feel free to call me at 480-726-8805 or reply to this email. Thank you!`;
 
     // Recheck after recipient lookup, immediately before the provider boundary.
-    if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+    if (!(await cloudEmailRecipientAllowed(to)) ||
+      !(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
       return jsonResponse(MARKETING_BLOCKED);
     }
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
