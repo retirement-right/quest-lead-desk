@@ -1,5 +1,9 @@
 # Safe integration health audit
 
+## Documented website read-only scheduler adapter
+- [ ] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
+- [ ] Run comprehensive mock regressions, safely deploy only process-followups, and verify read-only live recovery or document credential blockers.
+
 ## Website forwarding receiver and credential repair
 - [x] Inspect latest website outbox/diagnostic contract and CRM read authentication.
 - [x] Implement and safely deploy authenticated idempotent check-in/unsubscribe receiver with consent suppression and no automatic sends.
