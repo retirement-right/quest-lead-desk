@@ -132,4 +132,37 @@ describe("scheduler handler safety", () => {
     expect(mock.scan).toHaveBeenCalledTimes(1);
     expect(mock.send).not.toHaveBeenCalled();
   });
+
+  it.each(['{"dry_run":true}', ''])("uses the configured shared secret for accepted body %s", async body => {
+    const mock = loadHandler("process-followups", vi.fn());
+    mock.scan.mockResolvedValue({ success: true, dry_run: true, sending_enabled: false, sent: 0 });
+    expect((await mock.handler(new Request("https://crm.example.test/function", { method: "POST", body }))).status).toBe(200);
+    expect(mock.scan).toHaveBeenCalledWith("mock-only-credential");
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+  });
+  it.each(['{"send":true}', '{"dry_run":true,"retry":true}', '[]', 'null', '"string"', 'bad JSON'])
+    ("rejects unsupported body %s before reading", async body => {
+      const mock = loadHandler("process-followups", vi.fn());
+      expect((await mock.handler(new Request("https://crm.example.test/function", { method: "POST", body }))).status).toBe(400);
+      expect(mock.scan).not.toHaveBeenCalled();
+    });
+  it.each(["GET", "PUT", "DELETE"])("rejects %s before cron authentication or scanning", async method => {
+    const mock = loadHandler("process-followups", vi.fn());
+    expect((await mock.handler(new Request("https://crm.example.test/function", { method }))).status).toBe(405);
+    expect(mock.cronAuth).not.toHaveBeenCalled();
+    expect(mock.scan).not.toHaveBeenCalled();
+  });
+  it.each(["Website scan rejected (401)", "Website scan rejected (503)", "Website scan incomplete: page budget exhausted"])
+    ("reports blocked incomplete read for %s", async error => {
+      const mock = loadHandler("process-followups", vi.fn());
+      mock.scan.mockRejectedValue(new Error(error));
+      const response = await mock.handler(new Request("https://crm.example.test/function", { method: "POST" }));
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ success: false, dry_run: true, sending_enabled: false,
+        sent: 0, marketing_paused: true, scan_complete: false, scanned: 0 });
+      expect(mock.send).not.toHaveBeenCalled();
+      expect(mock.notify).not.toHaveBeenCalled();
+      expect(mock.insert).not.toHaveBeenCalled();
+    });
 });

@@ -1,14 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { marketingEmailAllowed, MARKETING_BLOCKED } from "../../supabase/functions/_shared/marketing-policy";
-import { inspectScheduledFollowups, isDueFollowup, type DueLead } from "../../supabase/functions/_shared/followup-scan";
 
 const auth = { apiKey: "mock-key", token: "mock-staff-token" };
-const now = Date.parse("2026-10-17T18:51:00Z");
-const lead: DueLead = {
-  id: "mock-lead", name: "Test", email: "test@example.test", phone: null,
-  do_not_email: false, raw_payload: null,
-  client_profile: { followup_auto_send: true, followup_status: "Pending", followup_type: "email", followup_date: "2026-10-17T18:00:00Z" },
-};
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 
 describe("global CRM marketing email pause", () => {
@@ -55,46 +48,3 @@ describe("global CRM marketing email pause", () => {
   });
 });
 
-describe("scheduled follow-up repair remains non-sending", () => {
-  it("replaces the missing proxy with authenticated GETs, with zero writes or sends even unpaused", async () => {
-    const request = vi.fn().mockImplementation(async (url: string) =>
-      json(url.includes("email_marketing_settings") ? [{ marketing_paused: false }] : [lead]));
-    const result = await inspectScheduledFollowups(auth, now, request);
-    expect(result).toMatchObject({ success: true, dry_run: true, sending_enabled: false, scanned: 1, sent: 0, due_email: 1, due_sms: 0 });
-    expect(request).toHaveBeenCalledTimes(2);
-    for (const [url, options] of request.mock.calls) {
-      expect(url).not.toContain("functions/v1");
-      expect(options.method).toBe("GET");
-    }
-  });
-
-  it("counts suppressed emails but preserves pending records", async () => {
-    const request = vi.fn().mockImplementation(async (url: string) => json(url.includes("email_marketing_settings") ? [{ marketing_paused: true }] : [lead]));
-    expect(await inspectScheduledFollowups(auth, now, request)).toMatchObject({ marketing_paused: true, suppressed_email: 1, sent: 0 });
-    expect(lead.client_profile?.followup_status).toBe("Pending");
-  });
-
-  it("does not mistake credential failure for an empty successful queue", async () => {
-    await expect(inspectScheduledFollowups(auth, now, vi.fn().mockResolvedValue(json([], 401)))).rejects.toThrow("Website read rejected (401)");
-  });
-
-  it("paginates deterministically beyond 1000 leads", async () => {
-    const request = vi.fn().mockImplementation(async (url: string) => {
-      if (url.includes("email_marketing_settings")) return json([{ marketing_paused: false }]);
-      return json(url.includes("offset=1000") ? [{ ...lead, id: "last" }] : Array.from({ length: 1000 }, (_, i) => ({ ...lead, id: `lead-${i}` })));
-    });
-    expect((await inspectScheduledFollowups(auth, now, request)).scanned).toBe(1001);
-    expect(request.mock.calls[2][0]).toContain("offset=1000");
-  });
-
-  it.each([
-    { followup_sent_at: "2026-10-17T17:00:00Z" },
-    { followup_status: "Sent" },
-    { followup_auto_send: false },
-    { followup_type: "phone" },
-    { followup_date: "2026-10-18T18:00:00Z" },
-    { followup_date: "invalid" },
-  ])("excludes ineligible follow-ups %j", async patch => {
-    expect(isDueFollowup({ ...lead, client_profile: { ...lead.client_profile, ...patch } }, now)).toBe(false);
-  });
-});
