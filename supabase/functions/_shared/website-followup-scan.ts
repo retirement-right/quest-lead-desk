@@ -58,10 +58,12 @@ export async function readWebsiteFollowups(secret: string, request: typeof fetch
       scanned += data.scanned;
       // A pause observed on any page is sticky for this inspection, never send authorization.
       paused ||= data.marketing_settings.marketing_paused;
-      if (data.next_cursor === null) return { leads, scanned, paused, pages: page + 1 };
-      if (data.scanned === 0 || cursors.has(data.next_cursor)) throw new Error("Website scan cursor did not progress");
-      cursors.add(data.next_cursor);
-      cursor = data.next_cursor;
+      const nextCursor = data.next_cursor;
+      if (nextCursor === null) return { leads, scanned, paused, pages: page + 1 };
+      if (typeof nextCursor !== "string") throw new Error("Invalid website scan response");
+      if (data.scanned === 0 || cursors.has(nextCursor)) throw new Error("Website scan cursor did not progress");
+      cursors.add(nextCursor);
+      cursor = nextCursor;
     }
     throw new Error("Website scan incomplete: page budget exhausted");
   } finally { clearTimeout(timer); }
