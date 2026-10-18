@@ -1,11 +1,12 @@
 # Safe integration health audit
 
 ## Scheduled follow-up and marketing pause repair
+- [ ] Complete authorized production deployment safety checks, deploy only the three repaired email/scheduler functions, and verify with non-sending checks; do not publish the browser auto-dispatcher or change cron, pause, secrets, or records.
 - [x] Inspect live scheduler logs, cron metadata, global setting contract, and all CRM sends.
 - [x] Add local fail-closed marketing guards and a backwards-compatible read-only scheduler repair.
 - [x] Run non-sending mock tests and report deployment/external dependencies; leave cron, secrets, and records unchanged.
 - [ ] Validate live authoritative website pause reads — requires an accepted website admin/moderator session or working scheduler read credential.
-- [ ] Deploy repaired functions and verify live 404 removal — blocked by the explicit no-deploy restriction.
+- [ ] Deploy repaired functions and verify live 404 removal — owner authorized safe backend deployment on 2026-10-18; sending remains prohibited.
 - [ ] Restore unattended scheduled dispatch — requires separate authorization, backlog review, working scheduler credentials and shared atomic claims.
 
 - [x] Trace CRM registrations, attribution, tracking, and operational health.
