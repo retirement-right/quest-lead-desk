@@ -1,11 +1,14 @@
 # Safe integration health audit
 
 ## Scheduled follow-up and marketing pause repair
+- [x] Complete authorized production deployment safety checks and deploy only the three repaired email/scheduler functions; non-sending reachability/auth checks and the existing 16:15 UTC read-only cron callback verified. No browser publication or changes to cron, pause, secrets, or records.
 - [x] Inspect live scheduler logs, cron metadata, global setting contract, and all CRM sends.
 - [x] Add local fail-closed marketing guards and a backwards-compatible read-only scheduler repair.
 - [x] Run non-sending mock tests and report deployment/external dependencies; leave cron, secrets, and records unchanged.
-- [ ] Validate live authoritative website pause reads — requires an accepted website admin/moderator session or working scheduler read credential.
-- [ ] Deploy repaired functions and verify live 404 removal — blocked by the explicit no-deploy restriction.
+- [ ] Validate authoritative pause value and deployed authenticated email gate without sending — public settings read exposes no singleton; existing scheduler credential rejected with 401; requires accepted website staff read access and a non-sending authenticated gate check.
+- [x] Deploy repaired functions and verify live 404 removal — three functions deployed on 2026-10-18; existing cron now reports explicit read-only website 401/503 failure, not missing proxy 404.
+- [ ] Publish local browser preflight/claim improvements — withheld because authenticated layout startup can dispatch queued SMS; requires separately authorized send-neutral publication strategy.
+- [ ] Verify birthday website-JWT compatibility — requires a non-sending authenticated validation; current function-specific JWT configuration is not explicitly overridden.
 - [ ] Restore unattended scheduled dispatch — requires separate authorization, backlog review, working scheduler credentials and shared atomic claims.
 
 - [x] Trace CRM registrations, attribution, tracking, and operational health.

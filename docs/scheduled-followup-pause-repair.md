@@ -1,6 +1,35 @@
 # Scheduled follow-up and global marketing pause repair
 
-Checked 2026-10-17. Local changes only; not deployed or published.
+## Production deployment — 2026-10-18
+
+Owner authorized only safe production deployment and non-sending verification. The three functions below were successfully deployed, with deployment boot logs at 16:11:03–16:11:05 UTC. No browser publication, migrations, secret changes, record writes, cron changes, or live provider tests were performed.
+
+| Function | Submitted source SHA-256 |
+|---|---|
+| `process-followups` | `e2e409db045c6fa63bc9aa69bd512779bcfb2d4ae4992e23d8ed1f8f51f5ac5f` |
+| `send-followup-email` | `291bb10c0684ad0213ec2d08312075ad2ed59662c316153268990ffeea836c52` |
+| `send-birthday-email` | `94a9a4b01beed52f8163d3f18d12ed8ee793d2e286a4ccf6a897538616594e04` |
+
+### Final safety and verification results
+- PASS: 54 non-sending tests in five files, rerun at 16:10 UTC; providers, alerts, authentication and writes mocked.
+- PASS: hosted application build succeeded, compiler diagnostics empty; latest local telemetry at 16:10:37 UTC says `build OK`. No manual build or typecheck was run.
+- PASS: deployed scheduler rejects an invalid cron secret with HTTP 401. Email GET probes return HTTP 405 before any authentication, setting read, provider call, alert or write. These method probes establish reachability, not marketing-gate behavior.
+- PASS: observed the already-active cron's next invocation, without triggering it. At 16:15:05 UTC production logs show `blocked read-only scan Website read rejected (401)` rather than the missing-proxy 404. The scheduler remains intentionally unable to send; credential rejection remains a blocker to successful scanning.
+- PASS: cron job 2 retained `active=true` and `*/15 * * * *`; it was neither activated nor deactivated by this task.
+- PASS: all 557 appointment records (460 booked, 97 cancelled) had identical full-row fingerprints before and after deployment. Activity count stayed 8 and unmatched SMS count stayed 22 at the initial post-deployment comparison.
+- NO SEND TESTS: no email handler POST was issued, no authenticated CRM layout was opened, and no provider request or manual cron execution was initiated.
+
+### Remaining blockers and intentionally withheld work
+1. **Authoritative pause value and authenticated deployed email-gate behavior are NOT VERIFIED.** A public-only settings GET at 16:11:40 UTC returned HTTP 200 without a visible singleton. The scanner's existing credential is rejected with 401. Neither result establishes the real pause value. Mock tests prove fail-closed policy behavior; deployment success and GET/401 probes do not substitute for a live authenticated gate test.
+2. **Successful scheduler reads remain blocked by the existing website credential.** No secrets were read out, changed or copied, and no staff session was fabricated for cron. The 404 is replaced by an explicit read-only 503 failure, not a healthy empty queue.
+3. **Browser publication was withheld for safety.** The authenticated layout mounts an automatic dispatcher capable of sending queued SMS; publishing/reloading it is not send-neutral. The local browser preflight and compare-and-swap improvements are not claimed as newly published by this task.
+4. **Birthday platform JWT compatibility remains unverified.** Its configuration lacks the explicit custom-JWT override present for the follow-up and scheduler functions. No configuration change was made; a GET reaching the handler does not prove a website staff JWT will be accepted.
+5. Existing birthday authoritative recipient/opt-out, explicit staff-role and server-side idempotency concerns remain outside this deployment. Existing manual/browser SMS paths were not disabled or changed. Absolute absence of unrelated concurrent provider sends is not established by activity counts or logs.
+6. Unattended dispatch restoration is explicitly unauthorized and remains disabled. Website registration completeness, Social Insight production safety and authenticated CRM reads retain their previously documented external-access blockers.
+
+## Historical local repair report — 2026-10-17
+
+The sections below record the earlier local-only repair and its evidence; deployment-status statements there are superseded by the production results above.
 
 ## Live evidence (read-only)
 - `process-followups` logged `proxy list_due 404: Requested function was not found` at 18:45 UTC.
