@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizeEmail } from "../_shared/followup-auth.ts";
 import { marketingEmailAllowed, MARKETING_BLOCKED } from "../_shared/marketing-policy.ts";
 import { WEBSITE_PUBLISHABLE_KEY } from "../_shared/website-rest.ts";
+import { cloudEmailRecipientAllowed } from "../_shared/cloud-email-suppression.ts";
 
 interface Body {
   contactId: string;
@@ -92,7 +93,10 @@ Deno.serve(async (req) => {
     const personalization: Record<string, unknown> = { to: [{ email: to }] };
     if (bcc && bcc !== to) personalization.bcc = [{ email: bcc }];
 
-    if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
+    const recipients = [to, ...(personalization.bcc && bcc ? [bcc] : [])];
+    const consent = await Promise.all(recipients.map(cloudEmailRecipientAllowed));
+    if (consent.some(allowed => !allowed) ||
+      !(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
       return jsonResponse(MARKETING_BLOCKED);
     }
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {

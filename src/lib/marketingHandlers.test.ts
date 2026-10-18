@@ -15,6 +15,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const insert = vi.fn().mockResolvedValue({ error: null });
   const scan = vi.fn().mockImplementation(inspectScheduledFollowups);
   const cronAuth = vi.fn().mockResolvedValue(null);
+  const suppression = vi.fn().mockResolvedValue(true);
   const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
   const modules: Record<string, unknown> = {
     "npm:@supabase/supabase-js@2/cors": { corsHeaders: {} },
@@ -31,6 +32,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     "../_shared/marketing-policy.ts": { marketingEmailAllowed: policy, MARKETING_BLOCKED },
     "../_shared/website-rest.ts": { WEBSITE_PUBLISHABLE_KEY },
     "../_shared/followup-scan.ts": { inspectScheduledFollowups: scan },
+    "../_shared/cloud-email-suppression.ts": { cloudEmailRecipientAllowed: suppression },
   };
   const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -43,7 +45,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     },
   });
   if (!handler) throw new Error("Handler not registered");
-  return { handler, send, notify, insert, scan, cronAuth };
+  return { handler, send, notify, insert, scan, cronAuth, suppression };
 }
 
 describe.each(["send-followup-email", "send-birthday-email"])("%s provider boundary", name => {
@@ -85,6 +87,24 @@ describe.each(["send-followup-email", "send-birthday-email"])("%s provider bound
     expect(settings).toHaveBeenCalledTimes(2);
     expect(mock.send).toHaveBeenCalledTimes(1);
     expect(mock.send.mock.calls[0][0]).toBe("https://api.sendgrid.com/v3/mail/send");
+  });
+
+  it("suppresses an unsubscribed recipient without providers, alerts or writes even when globally unpaused", async () => {
+    const mock = loadHandler(name, vi.fn().mockResolvedValue(true));
+    mock.suppression.mockResolvedValue(false);
+    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
+    expect(mock.suppression).toHaveBeenCalledWith("test@example.test");
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+  });
+
+  if (name === "send-birthday-email") it("suppresses delivery when the birthday BCC recipient is opted out", async () => {
+    const mock = loadHandler(name, vi.fn().mockResolvedValue(true));
+    mock.suppression.mockImplementation(async email => email !== "michaeleberhardt01@gmail.com");
+    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
   });
 });
 
