@@ -152,6 +152,62 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_email_suppressions: {
+        Row: {
+          email: string
+          first_event_key: string
+          suppressed_at: string
+        }
+        Insert: {
+          email: string
+          first_event_key: string
+          suppressed_at?: string
+        }
+        Update: {
+          email?: string
+          first_event_key?: string
+          suppressed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_email_suppressions_first_event_key_fkey"
+            columns: ["first_event_key"]
+            isOneToOne: false
+            referencedRelation: "crm_website_events"
+            referencedColumns: ["event_key"]
+          },
+        ]
+      }
+      crm_website_events: {
+        Row: {
+          delivery_id: string
+          email: string
+          event_key: string
+          event_type: string
+          payload: Json
+          received_at: string
+          status: string
+        }
+        Insert: {
+          delivery_id: string
+          email: string
+          event_key: string
+          event_type: string
+          payload: Json
+          received_at?: string
+          status?: string
+        }
+        Update: {
+          delivery_id?: string
+          email?: string
+          event_key?: string
+          event_type?: string
+          payload?: Json
+          received_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       inbound_sms_unmatched: {
         Row: {
           body: string | null
@@ -250,7 +306,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_website_event: {
+        Args: {
+          _delivery_id: string
+          _email: string
+          _event_key: string
+          _event_type: string
+          _payload: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
