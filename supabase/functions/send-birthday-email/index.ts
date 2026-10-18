@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     if (bcc && bcc !== to) personalization.bcc = [{ email: bcc }];
 
     const recipients = [to, ...(personalization.bcc && bcc ? [bcc] : [])];
-    const consent = await Promise.all(recipients.map(cloudEmailRecipientAllowed));
+    const consent = await Promise.all(recipients.map(email => cloudEmailRecipientAllowed(email)));
     if (consent.some(allowed => !allowed) ||
       !(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
       return jsonResponse(MARKETING_BLOCKED);
