@@ -20,7 +20,9 @@ No send, provider, notification, claim or record-update code was added. No brows
 - Direct website POST with privately supplied existing CRM credential and `limit:1`: 503; checked only the boolean equality of its error to `CRM authentication unavailable`. No person data, credential, URL or upstream body was printed.
 - First scheduler deployment was accepted at approximately 22:17 UTC. Authenticated scheduler probe returned 503 with new `Website scan rejected (503)` and explicit paused/incomplete/held fields. Invalid cron credential returned 401 before scanning.
 - All CRM tests: **138 passed across seven files**, 22:17:55 UTC. New scan suite: 52 mocked tests; handler suite: 32 including preserved email tests and scheduler body/auth/error tests. These test providers/writes only as mocks.
-- A compiler narrowing diagnostic in continuation-cursor handling was corrected after the first deployment; final deployment/check evidence follows below.
+- A compiler narrowing diagnostic in continuation-cursor handling was corrected after the first deployment. Final compiler telemetry **build OK at 22:18:30 UTC**; all **138 tests passed** again at 22:18:36 UTC.
+- Final deployment tool confirmed only `process-followups`; submitted source SHA-256 `998ba4ea38e36f011a2a94a38844bb252a3bc5ba054ae49aa0a56b6768577369`. Authenticated deployed probe at **22:19:06 UTC** returned expected 503, `dry_run:true`, `sending_enabled:false`, `sent:0`, `marketing_paused:true`, `scan_complete:false`, `scanned:0` and the new endpoint's configuration blocker. This is a fail-closed verification, **not successful live recovery**.
+- Appointment totals and same-method full-row fingerprint before/after remained **557 / 460 booked / 97 cancelled**, fingerprint `d362121ac5db24ba46862f6688f61795`. Cron remained **job 2 / active true / `*/15 * * * *`**. No production-record writes or cron mutations were issued.
 
 ## Remaining blocker and exact secure UI steps
 

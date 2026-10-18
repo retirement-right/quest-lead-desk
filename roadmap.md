@@ -1,14 +1,15 @@
 # Safe integration health audit
 
 ## Documented website read-only scheduler adapter
-- [ ] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
-- [ ] Run comprehensive mock regressions, safely deploy only process-followups, and verify read-only live recovery or document credential blockers.
+- [x] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
+- [x] Run 138 passing mock regressions, safely deploy only process-followups, and verify held fail-closed live behavior; document missing website credential blocker.
+- [ ] Verify successful live scheduler recovery and authoritative pause read — website must securely configure WEBSITE_CRM_SHARED_SECRET matching existing CRM LEADJIG_SHARED_SECRET; deployed website currently returns authentication-unavailable 503.
 
 ## Website forwarding receiver and credential repair
 - [x] Inspect latest website outbox/diagnostic contract and CRM read authentication.
 - [x] Implement and safely deploy authenticated idempotent check-in/unsubscribe receiver with consent suppression and no automatic sends.
 - [x] Run 82 non-sending regression tests and 2 Deno runtime tests; verify live unauthorized rejection, email method guards, service-only schema and unchanged appointment totals; document deployment and website contract.
-- [ ] Complete website authenticated forwarding and read-credential repair — website sender lacks authentication and has no matching service-read endpoint; requires changes in website project and private credential equality validation, without enabling delivery.
+- [ ] Complete website authenticated forwarding configuration — website now implements authenticated sender and service-read endpoint; dedicated matching credential and receiver URL require owner secure configuration and private verification, without enabling delivery.
 - [ ] Verify live accepted/duplicate/conflict persistence and real multi-session races — requires authorized isolated fixtures, not production contacts or held outbox release.
 
 ## Scheduled follow-up and marketing pause repair
