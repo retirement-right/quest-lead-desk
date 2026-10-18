@@ -1,5 +1,4 @@
-import { websiteRead, type WebsiteAuth } from "./website-rest.ts";
-import { marketingEmailAllowed } from "./marketing-policy.ts";
+import { readWebsiteFollowups } from "./website-followup-scan.ts";
 
 export interface DueLead {
   id: string;
@@ -21,43 +20,26 @@ export function isDueFollowup(lead: DueLead, now: number): boolean {
   return Number.isFinite(date) && date <= now;
 }
 
-export async function listDueFollowups(
-  auth: WebsiteAuth,
-  now: number,
-  request: typeof fetch = fetch,
-): Promise<DueLead[]> {
-  const due: DueLead[] = [];
-  const size = 1000;
-  for (let offset = 0; ; offset += size) {
-    const rows = await websiteRead(
-      `leadjig_leads?select=id,name,email,phone,do_not_email,raw_payload,client_profile&client_profile=not.is.null&order=id.asc&limit=${size}&offset=${offset}`,
-      auth,
-      request,
-    );
-    if (!Array.isArray(rows) || rows.some(row => !row || typeof row.id !== "string")) {
-      throw new Error("Invalid website follow-up response");
-    }
-    due.push(...(rows as DueLead[]).filter(row => isDueFollowup(row, now)));
-    if (rows.length < size) return due;
-  }
-}
-
 // Deliberately read-only. Request bodies cannot turn sending on. The next release
 // must introduce an explicitly authorized dispatch path with atomic claims shared
 // with browser dispatch; until then cron cannot release a backlog or double-send.
 export async function inspectScheduledFollowups(
-  auth: WebsiteAuth,
+  secret: string,
   now = Date.now(),
   request: typeof fetch = fetch,
 ) {
-  const allowed = await marketingEmailAllowed(auth, request);
-  const leads = await listDueFollowups(auth, now, request);
+  const scan = await readWebsiteFollowups(secret, request);
+  const allowed = !scan.paused;
+  const leads = scan.leads.filter(lead => isDueFollowup(lead, now));
   const emails = leads.filter(lead => String(lead.client_profile?.followup_type).toLowerCase() === "email");
   return {
     success: true,
     dry_run: true,
     sending_enabled: false,
-    scanned: leads.length,
+    scan_complete: true,
+    scanned: scan.scanned,
+    pages: scan.pages,
+    due: leads.length,
     due_email: emails.length,
     due_sms: leads.length - emails.length,
     marketing_paused: !allowed,

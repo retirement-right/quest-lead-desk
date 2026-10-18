@@ -25,8 +25,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const key = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY") ?? "";
-    const summary = await inspectScheduledFollowups({ apiKey: key, token: key });
+    const secret = Deno.env.get("LEADJIG_SHARED_SECRET") ?? "";
+    const summary = await inspectScheduledFollowups(secret);
     console.log("process-followups: read-only scan", JSON.stringify(summary));
     return jsonResponse(summary);
   } catch (error) {
@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
     console.error("process-followups: blocked read-only scan", message);
     return jsonResponse({
       success: false, dry_run: true, sending_enabled: false, sent: 0,
+      marketing_paused: true, scan_complete: false,
       scanned: 0, skipped: 0, errors: [message], error: message,
     }, 503);
   }
