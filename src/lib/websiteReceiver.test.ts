@@ -112,7 +112,7 @@ describe("actual migration in isolated PostgreSQL, never production", () => {
     expect((await accept("sql-unsubscribe", "unsubscribe", payload)).rows[0].result).toBe("accepted");
     expect((await db.query("SELECT email FROM public.crm_email_suppressions")).rows).toEqual([{ email: "sql@example.test" }]);
   });
-  it("duplicate and concurrent retries create one event", async () => {
+  it("duplicate retries on an isolated single connection create one event", async () => {
     const results = await Promise.all(Array.from({ length: 8 }, () => accept("sql-unsubscribe", "unsubscribe", payload)));
     expect(results.every(result => result.rows[0].result === "duplicate")).toBe(true);
     expect((await db.query<{ count: number }>("SELECT count(*)::int AS count FROM public.crm_website_events WHERE event_key='sql-unsubscribe'")).rows[0].count).toBe(1);
