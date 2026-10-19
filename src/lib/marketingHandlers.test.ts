@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { marketingEmailAllowed, MARKETING_BLOCKED } from "../../supabase/functions/_shared/marketing-policy";
 import { inspectScheduledFollowups } from "../../supabase/functions/_shared/followup-scan";
@@ -17,7 +18,16 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const cronAuth = vi.fn().mockResolvedValue(null);
   const suppression = vi.fn().mockResolvedValue(true);
   const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+  const guardExports: Record<string, unknown> = {};
+  runInNewContext(ts.transpileModule(readFileSync("supabase/functions/_shared/automatic-dispatch.ts", "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText, { exports: guardExports, Response, require: (specifier: string) => {
+    if (specifier === "npm:zod@3.25.76") return { z };
+    if (specifier === "./followup-auth.ts") return { jsonResponse };
+    throw new Error(`Unmocked guard dependency: ${specifier}`);
+  } });
   const modules: Record<string, unknown> = {
+    "../_shared/automatic-dispatch.ts": guardExports,
     "npm:@supabase/supabase-js@2/cors": { corsHeaders: {} },
     "https://esm.sh/@supabase/supabase-js@2.95.0": {
       createClient: () => ({ from: () => ({ insert }), auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { email: "staff@example.test" } } }) } }),
@@ -26,9 +36,10 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
       jsonResponse, requireCronSecret: cronAuth,
       requireStaffAuth: vi.fn().mockResolvedValue({ userId: "mock-staff", jwt: "mock-token" }),
       loadLeadRecipient: vi.fn().mockResolvedValue({ recipient: "test@example.test", firstName: "Mock", fullName: "Mock Contact" }),
+      normalizePhone: (raw: string) => raw ? "+14805550123" : null,
       normalizeEmail: (raw: string) => raw.trim().toLowerCase(),
     },
-    "../_shared/admin-notify.ts": { notifyFollowupEmailFailed: notify },
+    "../_shared/admin-notify.ts": { notifyFollowupEmailFailed: notify, notifyFollowupSmsFailed: notify, notifyFollowupSmsSent: notify, notifyBirthdaySmsSent: notify, notifyBirthdaySmsFailed: notify },
     "../_shared/marketing-policy.ts": { marketingEmailAllowed: policy, MARKETING_BLOCKED },
     "../_shared/website-rest.ts": { WEBSITE_PUBLISHABLE_KEY },
     "../_shared/followup-scan.ts": { inspectScheduledFollowups: scan },
@@ -50,7 +61,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
 
 describe.each(["send-followup-email", "send-birthday-email"])("%s provider boundary", name => {
   const request = () => new Request("https://crm.example.test/function", {
-    method: "POST", body: JSON.stringify({ leadId: "mock", auto: true, contactId: "mock", email: "test@example.test", personKind: "primary", firstName: "Mock" }),
+    method: "POST", body: JSON.stringify({ leadId: "mock", auto: false, contactId: "mock", email: "test@example.test", personKind: "primary", firstName: "Mock" }),
   });
 
   it.each([true, null, "false"])("blocks setting %s with no provider, alerts, or record writes", async value => {
@@ -165,4 +176,39 @@ describe("scheduler handler safety", () => {
       expect(mock.notify).not.toHaveBeenCalled();
       expect(mock.insert).not.toHaveBeenCalled();
     });
+});
+
+describe.each(["send-followup-sms", "send-birthday-sms", "send-followup-email", "send-birthday-email"])("%s automatic hold", name => {
+  it.each([true, false, null, "unavailable"])("blocks automatic requests with pause %s before providers, alerts, settings or writes", async pause => {
+    const policy = vi.fn().mockImplementation(async () => {
+      if (pause === "unavailable") throw new Error("offline");
+      return pause === false;
+    });
+    const mock = loadHandler(name, policy);
+    const response = await mock.handler(new Request("https://crm.example.test/function", {
+      method: "POST", body: JSON.stringify({ auto: true, leadId: "mock", contactId: "mock", phone: "+14805550123" }),
+    }));
+    expect(await response.json()).toMatchObject({ success: false, paused: true, sending_enabled: false, sent: 0 });
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+    expect(policy).not.toHaveBeenCalled();
+  });
+  it.each(['{"auto":"false"}', '{"auto":null}', '{"auto":1}', 'null', '[]', 'bad JSON'])("rejects malformed dispatch %s without side effects", async body => {
+    const mock = loadHandler(name, vi.fn());
+    expect((await mock.handler(new Request("https://crm.example.test/function", { method: "POST", body }))).status).toBe(400);
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("manual SMS compatibility (all providers mocked)", () => {
+  it.each(["send-followup-sms", "send-birthday-sms"])("retains explicit manual %s", async name => {
+    const mock = loadHandler(name, vi.fn());
+    expect(await (await mock.handler(new Request("https://crm.example.test/function", {
+      method: "POST", body: JSON.stringify({ auto: false, leadId: "mock", contactId: "mock", phone: "+14805550123", firstName: "Mock", contactName: "Mock" }),
+    }))).json()).toMatchObject({ success: true });
+    expect(mock.send.mock.calls[0][0]).toContain("api.twilio.com");
+  });
 });
