@@ -1,5 +1,10 @@
 # Safe integration health audit
 
+## Automatic messaging safety — 2026-10-19
+- [ ] Disable page-load dispatch and independently hold automatic SMS/email at providers without queue/history writes; preserve manual functions.
+- [ ] Run mocked regressions and page-load verification; safely deploy backend guards and publish only the verified send-neutral frontend.
+- [ ] Record exact deployment evidence, unchanged production counts, tests and remaining owner-setup blockers.
+
 ## Secure cross-project authentication audit — 2026-10-18
 - [x] Inspect current credential names, supported runtime authentication, website contracts and CRM receiver without reading secret values; no supported service-key or platform-auth fallback exists for the dedicated website contract.
 - [x] Re-run 137 non-sending tests and inspect browser startup queued SMS exposure without loading an authenticated auto-send layout; SMS can dispatch despite email pause.
