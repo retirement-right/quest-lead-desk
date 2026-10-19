@@ -1,8 +1,8 @@
 # Safe integration health audit
 
 ## Safety repair re-verification — 2026-10-19
-- [ ] Strengthen isolated page-load and automatic-provider regressions; no authenticated CRM interface, messages, production writes or setting changes.
-- [ ] Run non-sending tests and inspect harness compilation; report publication blocker without opening authenticated CRM.
+- [x] Strengthen isolated page-load and automatic-provider regressions; no authenticated CRM interface, messages, production writes or setting changes.
+- [x] Run non-sending safety tests (183 passing) and inspect harness compilation (build OK at 01:14:15 UTC); publication withheld because deployed parity and actual page-load safety remain unverified under the no-authenticated-interface restriction.
 
 ## Automatic messaging safety — 2026-10-19
 - [x] Disable page-load dispatch and independently hold automatic SMS/email at providers without queue/history writes; preserve manual functions.

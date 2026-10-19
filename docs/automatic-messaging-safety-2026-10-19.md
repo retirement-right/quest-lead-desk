@@ -1,5 +1,14 @@
 # Automatic messaging safety — 2026-10-19
 
+## Latest restricted re-verification — 01:14 UTC
+
+- The requested repair was already implemented in checked-in source; no production dispatch code needed changing. The inert hook and unconditional automatic provider hold remain intact. The hold is stronger than a pause lookup: automatic messages cannot send whether the setting is true, false, missing or unavailable.
+- Strengthened the isolated hook regressions with StrictMode rerender/remount, two simulated days, zero pending timers, direct fetch interception, both client mocks, and preserved overdue SMS/email fixtures. No authenticated CRM interface was opened.
+- Strengthened all four provider-handler regressions to assert zero dispatch-time credential reads, recipient lookups and suppression reads for held requests, and added caller-supplied force/unpause/send-enable bypass tests. Providers and storage are mocked; no live sends or production requests were made.
+- **183 tests passed across six targeted safety files**; harness compilation reported **build OK at 2026-10-19T01:14:15Z**. No queue, history, pause, credentials or cron changes were performed.
+- No backend redeployment was needed: production guard code was unchanged from the preceding deployment. That earlier deployment evidence is recorded below, not freshly verified live in this restricted check.
+- **Publication withheld:** isolated regressions and source inspection verify the current implementation, but do not establish deployed parity or actual authenticated page-load behavior. This check respects the owner's prohibition on opening the authenticated CRM; no sign-in is requested or attempted. The preceding publication blocker remains unresolved.
+
 ## Implemented and deployed
 
 - Removed `useFollowupAutoSend` from `AppLayout`; its compatibility export is now inert, with no session reads, queue scans, claims, rollback, activity writes or messages.
