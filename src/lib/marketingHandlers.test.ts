@@ -48,7 +48,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   runInNewContext(compiled, {
-    exports: {}, Request, Response, fetch: send, console: { log: vi.fn(), error: vi.fn() },
+    exports: {}, Request, Response, btoa, URLSearchParams, fetch: send, console: { log: vi.fn(), error: vi.fn() },
     Deno: { serve: (callback: Handler) => { handler = callback; }, env: { get: () => "mock-only-credential" } },
     require: (specifier: string) => {
       if (!(specifier in modules)) throw new Error(`Unmocked dependency: ${specifier}`);
@@ -206,6 +206,7 @@ describe.each(["send-followup-sms", "send-birthday-sms", "send-followup-email", 
 describe("manual SMS compatibility (all providers mocked)", () => {
   it.each(["send-followup-sms", "send-birthday-sms"])("retains explicit manual %s", async name => {
     const mock = loadHandler(name, vi.fn());
+    mock.send.mockImplementation(async () => new Response(JSON.stringify({ sid: "mock-only-sid" }), { status: 202 }));
     expect(await (await mock.handler(new Request("https://crm.example.test/function", {
       method: "POST", body: JSON.stringify({ auto: false, leadId: "mock", contactId: "mock", phone: "+14805550123", firstName: "Mock", contactName: "Mock" }),
     }))).json()).toMatchObject({ success: true });
