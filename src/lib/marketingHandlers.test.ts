@@ -17,6 +17,8 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const scan = vi.fn().mockImplementation(inspectScheduledFollowups);
   const cronAuth = vi.fn().mockResolvedValue(null);
   const suppression = vi.fn().mockResolvedValue(true);
+  const envGet = vi.fn().mockReturnValue("mock-only-credential");
+  const recipient = vi.fn().mockResolvedValue({ recipient: "test@example.test", firstName: "Mock", fullName: "Mock Contact" });
   const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
   const guardExports: Record<string, unknown> = {};
   runInNewContext(ts.transpileModule(readFileSync("supabase/functions/_shared/automatic-dispatch.ts", "utf8"), {
@@ -35,7 +37,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     "../_shared/followup-auth.ts": {
       jsonResponse, requireCronSecret: cronAuth,
       requireStaffAuth: vi.fn().mockResolvedValue({ userId: "mock-staff", jwt: "mock-token" }),
-      loadLeadRecipient: vi.fn().mockResolvedValue({ recipient: "test@example.test", firstName: "Mock", fullName: "Mock Contact" }),
+      loadLeadRecipient: recipient,
       normalizePhone: (raw: string) => raw ? "+14805550123" : null,
       normalizeEmail: (raw: string) => raw.trim().toLowerCase(),
     },
@@ -49,14 +51,15 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   runInNewContext(compiled, {
     exports: {}, Request, Response, btoa, URLSearchParams, fetch: send, console: { log: vi.fn(), error: vi.fn() },
-    Deno: { serve: (callback: Handler) => { handler = callback; }, env: { get: () => "mock-only-credential" } },
+    Deno: { serve: (callback: Handler) => { handler = callback; }, env: { get: envGet } },
     require: (specifier: string) => {
       if (!(specifier in modules)) throw new Error(`Unmocked dependency: ${specifier}`);
       return modules[specifier];
     },
   });
   if (!handler) throw new Error("Handler not registered");
-  return { handler, send, notify, insert, scan, cronAuth, suppression };
+  envGet.mockClear(); // Ignore module initialization; dispatch must not load credentials.
+  return { handler, send, notify, insert, scan, cronAuth, suppression, envGet, recipient };
 }
 
 describe.each(["send-followup-email", "send-birthday-email"])("%s provider boundary", name => {
@@ -192,6 +195,24 @@ describe.each(["send-followup-sms", "send-birthday-sms", "send-followup-email", 
     expect(mock.send).not.toHaveBeenCalled();
     expect(mock.notify).not.toHaveBeenCalled();
     expect(mock.insert).not.toHaveBeenCalled();
+    expect(policy).not.toHaveBeenCalled();
+    expect(mock.envGet).not.toHaveBeenCalled();
+    expect(mock.recipient).not.toHaveBeenCalled();
+    expect(mock.suppression).not.toHaveBeenCalled();
+  });
+  it("cannot release automatic messages using caller-supplied pause or enable flags", async () => {
+    const policy = vi.fn().mockResolvedValue(true);
+    const mock = loadHandler(name, policy);
+    const response = await mock.handler(new Request("https://crm.example.test/function", {
+      method: "POST", body: JSON.stringify({ auto: true, marketing_paused: false, sending_enabled: true,
+        dry_run: false, force: true, leadId: "overdue-sms", contactId: "overdue-email", phone: "+14805550123" }),
+    }));
+    expect(await response.json()).toMatchObject({ success: false, paused: true, sending_enabled: false, sent: 0 });
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+    expect(mock.envGet).not.toHaveBeenCalled();
+    expect(mock.recipient).not.toHaveBeenCalled();
     expect(policy).not.toHaveBeenCalled();
   });
   it.each(['{"auto":"false"}', '{"auto":null}', '{"auto":1}', 'null', '[]', 'bad JSON'])("rejects malformed dispatch %s without side effects", async body => {
