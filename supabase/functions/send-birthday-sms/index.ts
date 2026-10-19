@@ -1,4 +1,5 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizePhone } from "../_shared/followup-auth.ts";
 import { notifyBirthdaySmsSent, notifyBirthdaySmsFailed } from "../_shared/admin-notify.ts";
@@ -77,13 +78,19 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const dispatchBody = await readManualDispatchBody(req);
+  if (dispatchBody instanceof Response) return dispatchBody;
+
+  const cloudUrl = Deno.env.get("SUPABASE_URL");
+  const cloudKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!cloudUrl || !cloudKey) return jsonResponse({ success: false, error: "Activity storage unavailable" }, 503);
+  const admin = createClient(cloudUrl, cloudKey);
   let body: Body | null = null;
   let sentBy: string | null = null;
   let to = "";
 
   try {
-    const jwt = req.headers.get("Authorization")!.slice(7).trim();
+    const jwt = auth.jwt;
     const cli = createClient("https://uoneplysuvmaygbrbswd.supabase.co", Deno.env.get("LEADJIG_ANON_KEY") ?? "sb_publishable_8Vv7urmF3VqUXH3avaxrsg_cfSNKWr1");
     const { data: u } = await cli.auth.getUser(jwt);
     sentBy = u?.user?.email ?? null;
@@ -93,7 +100,7 @@ Deno.serve(async (req) => {
     const FROM = Deno.env.get("TWILIO_PHONE_NUMBER");
     if (!SID || !TOK || !FROM) throw new Error("Twilio not configured");
 
-    body = (await req.json()) as Body;
+    body = dispatchBody as unknown as Body;
     to = normalizePhone(String(body.phone ?? ""));
     if (!to) {
       await admin.from("birthday_outreach_log").insert({

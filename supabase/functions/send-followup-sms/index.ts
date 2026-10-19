@@ -1,4 +1,5 @@
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
 import {
   jsonResponse,
   loadLeadRecipient,
@@ -27,6 +28,9 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  const dispatchBody = await readManualDispatchBody(req);
+  if (dispatchBody instanceof Response) return dispatchBody;
+
   // Populated as soon as we know them, so the failure path can name the client.
   let isAuto = false;
   let clientName = "";
@@ -40,7 +44,7 @@ Deno.serve(async (req) => {
     if (!TWILIO_AUTH_TOKEN) throw new Error("TWILIO_AUTH_TOKEN not configured");
     if (!TWILIO_PHONE_NUMBER) throw new Error("TWILIO_PHONE_NUMBER not configured");
 
-    const body = (await req.json()) as Body;
+    const body = dispatchBody as Body;
     const leadId = String(body.leadId ?? "").trim();
     isAuto = body.auto === true;
     clientName = String(body.clientName ?? "").trim();

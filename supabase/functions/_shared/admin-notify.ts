@@ -48,23 +48,21 @@ async function sendAdminSms(text: string): Promise<void> {
 
 /** Sent only after Twilio accepted the client's follow-up SMS. */
 export function notifyFollowupSmsSent(name: string, phone: string): Promise<void> {
-  return sendAdminSms(
-    `CRM CONFIRMATION: Follow-up SMS sent to ${name || "client"} at ${phone} on ${fmtWhen()}.`,
-  );
+  // Automatic follow-up alerts are held alongside automatic client dispatch.
+  void name; void phone;
+  return Promise.resolve();
 }
 
 /** Sent when an automatic client follow-up SMS could not be delivered. */
 export function notifyFollowupSmsFailed(name: string, phone: string): Promise<void> {
-  return sendAdminSms(
-    `CRM ALERT: Follow-up SMS FAILED for ${name || "client"} at ${phone || "unknown number"}. Check CRM Activity.`,
-  );
+  void name; void phone;
+  return Promise.resolve();
 }
 
 /** Sent only when an automatic client follow-up EMAIL fails (no success pings). */
 export function notifyFollowupEmailFailed(name: string, email: string): Promise<void> {
-  return sendAdminSms(
-    `CRM ALERT: Follow-up EMAIL FAILED for ${name || "client"} at ${email || "unknown address"}. Check CRM Activity.`,
-  );
+  void name; void email;
+  return Promise.resolve();
 }
 
 /** Admin copy of a birthday SMS that Twilio accepted for the client. */
