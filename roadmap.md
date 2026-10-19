@@ -1,11 +1,17 @@
 # Safe integration health audit
 
+## Automatic messaging safety — 2026-10-19
+- [x] Disable page-load dispatch and independently hold automatic SMS/email at providers without queue/history writes; preserve manual functions.
+- [x] Run 180 mock regressions and 2 Deno tests; verify four mock-session pages issue zero send requests or queue writes; deploy four backend guards.
+- [ ] Publish verified send-neutral frontend — actual website staff session unavailable; owner must sign into preview for final authenticated page-load check. Mock-session verification alone is not live end-to-end verification.
+- [x] Record exact deployment evidence, unchanged production counts, tests and remaining owner-setup blockers.
+
 ## Secure cross-project authentication audit — 2026-10-18
 - [x] Inspect current credential names, supported runtime authentication, website contracts and CRM receiver without reading secret values; no supported service-key or platform-auth fallback exists for the dedicated website contract.
 - [x] Re-run 137 non-sending tests and inspect browser startup queued SMS exposure without loading an authenticated auto-send layout; SMS can dispatch despite email pause.
 - [x] Document exact minimum owner setup, fresh website 503/CRM 401 evidence, no-deployment decision and publishing blockers in the Files audit report.
 - [ ] Complete matching-auth live recovery — owner must securely configure website shared credential and receiver URL; original private value is unavailable to this audit.
-- [ ] Make browser publication send-neutral — requires separate authorized changes to mount-triggered SMS dispatch and provider guards; publication withheld.
+- [x] Make browser publication send-neutral — removed startup dispatcher, made legacy hook inert, deployed automatic provider holds; final live-session publication check tracked above.
 
 ## Documented website read-only scheduler adapter
 - [x] Adopt the deployed authenticated bounded scan contract without changing sending, cron, secrets or records.
@@ -26,7 +32,7 @@
 - [x] Run non-sending mock tests and report deployment/external dependencies; leave cron, secrets, and records unchanged.
 - [ ] Validate authoritative pause value and deployed authenticated email gate without sending — public settings read exposes no singleton; existing scheduler credential rejected with 401; requires accepted website staff read access and a non-sending authenticated gate check.
 - [x] Deploy repaired functions and verify live 404 removal — three functions deployed on 2026-10-18; existing cron now reports explicit read-only website 401/503 failure, not missing proxy 404.
-- [ ] Publish local browser preflight/claim improvements — withheld because authenticated layout startup can dispatch queued SMS; requires separately authorized send-neutral publication strategy.
+- [ ] Publish send-neutral browser — preflight/claim dispatcher replaced by inert compatibility hook; waiting for actual website staff session as tracked above.
 - [ ] Verify birthday website-JWT compatibility — requires a non-sending authenticated validation; current function-specific JWT configuration is not explicitly overridden.
 - [ ] Restore unattended scheduled dispatch — requires separate authorization, backlog review, working scheduler credentials and shared atomic claims.
 

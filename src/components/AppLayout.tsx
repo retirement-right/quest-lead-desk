@@ -16,7 +16,6 @@ import { format, startOfDay, endOfDay, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { useFailedSyncs } from "@/hooks/useFailedSyncs";
 import { useInboundSmsResolver } from "@/hooks/useInboundSmsResolver";
-import { useFollowupAutoSend } from "@/hooks/useFollowupAutoSend";
 
 
 
@@ -43,8 +42,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // Attach any queued inbound SMS replies to their contacts (uses staff session).
   useInboundSmsResolver();
 
-  // Dispatch due auto-send Email/SMS follow-ups (uses staff session).
-  useFollowupAutoSend();
+  // Page loads must never dispatch queued outbound messages.
 
 
 

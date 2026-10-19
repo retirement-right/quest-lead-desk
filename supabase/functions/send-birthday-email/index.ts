@@ -1,4 +1,5 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizeEmail } from "../_shared/followup-auth.ts";
 import { marketingEmailAllowed, MARKETING_BLOCKED } from "../_shared/marketing-policy.ts";
@@ -51,6 +52,9 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  const dispatchBody = await readManualDispatchBody(req);
+  if (dispatchBody instanceof Response) return dispatchBody;
+
   if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
     return jsonResponse(MARKETING_BLOCKED);
   }
@@ -72,7 +76,7 @@ Deno.serve(async (req) => {
     const SENDGRID_API_KEY = Deno.env.get("SENDGRID_API_KEY");
     if (!SENDGRID_API_KEY) throw new Error("SendGrid not configured");
 
-    body = (await req.json()) as Body;
+    body = dispatchBody as unknown as Body;
     to = normalizeEmail(String(body.email ?? ""));
     if (!to) {
       await admin.from("birthday_outreach_log").insert({

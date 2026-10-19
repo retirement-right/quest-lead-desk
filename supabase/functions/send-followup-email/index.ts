@@ -1,4 +1,5 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
 import {
   jsonResponse,
   loadLeadRecipient,
@@ -27,6 +28,9 @@ Deno.serve(async (req) => {
   const auth = await requireStaffAuth(req);
   if (auth instanceof Response) return auth;
 
+  const dispatchBody = await readManualDispatchBody(req);
+  if (dispatchBody instanceof Response) return dispatchBody;
+
   if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
     return jsonResponse(MARKETING_BLOCKED);
   }
@@ -41,7 +45,7 @@ Deno.serve(async (req) => {
     if (!SENDGRID_API_KEY) throw new Error("SENDGRID_API_KEY not configured");
     if (!SENDGRID_FROM_EMAIL) throw new Error("SENDGRID_FROM_EMAIL not configured");
 
-    const body = (await req.json()) as Body;
+    const body = dispatchBody as Body;
     const leadId = String(body.leadId ?? "").trim();
     isAuto = body.auto === true;
     clientName = String(body.clientName ?? "").trim();
