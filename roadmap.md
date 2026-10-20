@@ -1,5 +1,14 @@
 # Safe integration health audit
 
+## Restricted integration verification — 2026-10-20
+- [x] Inspect current website snapshot, CRM secret names and authentication contracts without reading secret values; no applicable cross-project credential binding or connector found.
+- [x] Verify live receiver/scheduler unauthorized rejection, SMS invalid-auth rejection and email method rejection; website scan still returns authentication-unavailable 503 and existing scheduler logged that failure at 18:15:05 UTC.
+- [x] Run 183 isolated regressions in six files; fresh harness telemetry reports build OK at 2026-10-20 18:18:52 UTC after documentation edits; no manual build/typecheck.
+- [x] Document exact owner setup and current evidence in docs/crm-integration-verification-2026-10-20.md; no code deployment, signed-in page, sends, secret changes, forwarding changes or customer writes.
+- [ ] Verify website matching credential, receiver URL and authoritative live pause/held settings — requires website project's metadata-only inspection and owner secure provisioning if unavailable.
+- [ ] Verify deployed guard source parity without unsafe dispatch — current available read-only interfaces expose rejection behavior, not live source; authenticated dispatch probe deliberately withheld.
+- [ ] Assess/remove legacy secret-derived debug endpoint safely — source is unsafe; live presence unverified and endpoint must never be invoked for credential readiness.
+
 ## Safety repair re-verification — 2026-10-19
 - [x] Strengthen isolated page-load and automatic-provider regressions; no authenticated CRM interface, messages, production writes or setting changes.
 - [x] Run non-sending safety tests (183 passing) and inspect harness compilation (build OK at 01:14:15 UTC); publication withheld because deployed parity and actual page-load safety remain unverified under the no-authenticated-interface restriction.
