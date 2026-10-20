@@ -13,7 +13,7 @@
 - CRM receiver GET with deliberately invalid shared authentication: **401**. CRM scheduler POST with invalid cron authentication: **401**.
 - Deployed follow-up SMS and birthday SMS POSTs with deliberately invalid authorization and no recipient: **401** each. Deployed follow-up email and birthday email GETs: **405** each. These are safe rejection/reachability checks, **not proof that the live authenticated automatic hold matches source**.
 - **183 isolated tests passed in six files**, run at **18:17:40 UTC**: handler guards 78, scan 52, receiver 25, marketing policy 16, inert hook 4, phone matching 8. Provider calls, storage and website reads are mocked; no live message sends or customer writes.
-- Latest hosted compilation record: successful at **2026-10-19 01:15:19 UTC**, matching current source commit `519e4307a14ad243f133c3a705c055b5e4fa2789`; diagnostics empty. This is a recorded prior successful compilation, **not a newly executed build today**. No application source changed today.
+- Hosted compilation initially reported the prior successful run at **2026-10-19 01:15:19 UTC**, matching source commit `519e4307a14ad243f133c3a705c055b5e4fa2789`, with empty diagnostics. After audit documentation edits, fresh harness telemetry reported **build OK at 2026-10-20 18:18:52 UTC**. No manual build or typecheck was run, and no application source changed today.
 - Read-only CRM aggregates observed: **558 appointments, 8 activity rows, 22 inbound queue rows, 0 receiver events, 0 suppression rows**. Appointment count differs from prior historical 557; this audit made no writes and did not inspect or attribute the new row. Counts are not row-level immutability evidence, nor a website follow-up queue audit.
 
 ## Authentication and safety contracts

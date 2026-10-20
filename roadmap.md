@@ -3,7 +3,7 @@
 ## Restricted integration verification — 2026-10-20
 - [x] Inspect current website snapshot, CRM secret names and authentication contracts without reading secret values; no applicable cross-project credential binding or connector found.
 - [x] Verify live receiver/scheduler unauthorized rejection, SMS invalid-auth rejection and email method rejection; website scan still returns authentication-unavailable 503 and existing scheduler logged that failure at 18:15:05 UTC.
-- [x] Run 183 isolated regressions in six files; latest hosted compilation record succeeds at 2026-10-19 01:15:19 UTC with empty diagnostics, not a new build today.
+- [x] Run 183 isolated regressions in six files; fresh harness telemetry reports build OK at 2026-10-20 18:18:52 UTC after documentation edits; no manual build/typecheck.
 - [x] Document exact owner setup and current evidence in docs/crm-integration-verification-2026-10-20.md; no code deployment, signed-in page, sends, secret changes, forwarding changes or customer writes.
 - [ ] Verify website matching credential, receiver URL and authoritative live pause/held settings — requires website project's metadata-only inspection and owner secure provisioning if unavailable.
 - [ ] Verify deployed guard source parity without unsafe dispatch — current available read-only interfaces expose rejection behavior, not live source; authenticated dispatch probe deliberately withheld.
