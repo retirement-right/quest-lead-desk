@@ -1,5 +1,11 @@
 # Safe integration health audit
 
+## Staff least-privilege proposal — 2026-10-21
+- [x] Inspect current Cloud authentication/role metadata and website role source snapshot; document an unapplied least-privilege proposal with owner-access prerequisites.
+- [x] Add and run an isolated SMS handler harness exercising the real authentication helper with simulated identity validation and no network or storage access: 28 new tests, 215 targeted tests passed.
+- [x] Document source-test versus production evidence and the exact owner authorization decision; no migration or deployment.
+- [ ] Implement staff enforcement and reviewed direct-access tightening — blocked on owner-approved staff/action policy, privately verified owner website role, and complete bridge compatibility checks.
+
 ## Restricted integration verification — 2026-10-20
 - [x] Inspect current website snapshot, CRM secret names and authentication contracts without reading secret values; no applicable cross-project credential binding or connector found.
 - [x] Verify live receiver/scheduler unauthorized rejection, SMS invalid-auth rejection and email method rejection; website scan still returns authentication-unavailable 503 and existing scheduler logged that failure at 18:15:05 UTC.
