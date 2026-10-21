@@ -3,6 +3,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { jsonResponse, requireCronSecret } from "../_shared/followup-auth.ts";
 import { inspectScheduledFollowups } from "../_shared/followup-scan.ts";
+import { websiteIntegrationSecret } from "../_shared/website-integration-secret.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const secret = Deno.env.get("LEADJIG_SHARED_SECRET") ?? "";
+    const secret = websiteIntegrationSecret(name => Deno.env.get(name)) ?? "";
     const summary = await inspectScheduledFollowups(secret);
     console.log("process-followups: read-only scan", JSON.stringify(summary));
     return jsonResponse(summary);
