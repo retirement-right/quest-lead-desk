@@ -1,8 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createReceiver } from "./handler.ts";
+import { websiteIntegrationSecret } from "../_shared/website-integration-secret.ts";
 
 Deno.serve(createReceiver({
-  secret: () => Deno.env.get("LEADJIG_SHARED_SECRET"),
+  secret: () => websiteIntegrationSecret(name => Deno.env.get(name)),
   store: async (event) => {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

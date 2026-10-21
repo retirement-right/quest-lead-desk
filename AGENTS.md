@@ -8,4 +8,4 @@
 - Browser page loads must never dispatch or claim outbound follow-ups; retain the legacy hook as an inert compatibility export so stale callers cannot mutate queues.
 - All messaging providers reject automatic requests before credentials, recipient lookup, writes or alerts using the shared automatic-dispatch guard; automatic follow-up admin alerts also remain inert until independently authorized.
 - Keep website events in a service-only inbox with atomic idempotency and sticky email suppression; check-ins never change contacts, consent, follow-ups, or trigger sends.
-- Email provider boundaries must re-read Cloud suppression as well as website pause; unavailable suppression storage blocks marketing rather than ignoring unsubscribe events.
+- Email provider boundaries must re-read Cloud suppression as well as website pause; unavailable suppression storage blocks marketing rather than ignoring unsubscribe events.- Website<->CRM receiver and scan use only the dedicated `WEBSITE_CRM_INTEGRATION_SECRET` (min 32 chars, no fallback to `LEADJIG_SHARED_SECRET`) so BookedIN/LeadJig credentials stay separate; missing value fails closed.
