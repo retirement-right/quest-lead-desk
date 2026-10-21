@@ -45,6 +45,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     "../_shared/marketing-policy.ts": { marketingEmailAllowed: policy, MARKETING_BLOCKED },
     "../_shared/website-rest.ts": { WEBSITE_PUBLISHABLE_KEY },
     "../_shared/followup-scan.ts": { inspectScheduledFollowups: scan },
+    "../_shared/website-integration-secret.ts": { websiteIntegrationSecret: (read: (n: string) => string | undefined) => read("WEBSITE_CRM_INTEGRATION_SECRET") },
     "../_shared/cloud-email-suppression.ts": { cloudEmailRecipientAllowed: suppression },
   };
   const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
