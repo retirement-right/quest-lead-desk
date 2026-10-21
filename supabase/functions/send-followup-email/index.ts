@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
   const dispatchBody = await readManualDispatchBody(req);
   if (dispatchBody instanceof Response) return dispatchBody;
 
+  // OWNER HOLD 2026-10-21: this email category is paused regardless of the
+  // global marketing setting. No request flag can release it.
+  return jsonResponse({ success: false, paused: true, sending_enabled: false, sent: 0,
+    error: "This email category is on hold by owner decision." });
+
+  // deno-lint-ignore no-unreachable
+
   if (!(await marketingEmailAllowed({ apiKey: WEBSITE_PUBLISHABLE_KEY, token: auth.jwt }))) {
     return jsonResponse(MARKETING_BLOCKED);
   }

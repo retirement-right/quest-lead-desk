@@ -63,63 +63,28 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   return { handler, send, notify, insert, scan, cronAuth, suppression, envGet, recipient };
 }
 
-describe.each(["send-followup-email", "send-birthday-email"])("%s provider boundary", name => {
-  const request = () => new Request("https://crm.example.test/function", {
-    method: "POST", body: JSON.stringify({ leadId: "mock", auto: false, contactId: "mock", email: "test@example.test", personKind: "primary", firstName: "Mock" }),
+describe.each(["send-followup-email", "send-birthday-email"])("%s owner category hold", name => {
+  const request = (extra: Record<string, unknown> = {}) => new Request("https://crm.example.test/function", {
+    method: "POST", body: JSON.stringify({ leadId: "mock", auto: false, contactId: "mock", email: "test@example.test", personKind: "primary", firstName: "Mock", ...extra }),
   });
-
-  it.each([true, null, "false"])("blocks setting %s with no provider, alerts, or record writes", async value => {
-    const settings = vi.fn().mockResolvedValue(new Response(JSON.stringify([{ marketing_paused: value }])));
-    const mock = loadHandler(name, auth => marketingEmailAllowed(auth, settings));
-    const response = await mock.handler(request());
-    expect(await response.json()).toMatchObject({ success: false, paused: true, sent: 0 });
-    expect(mock.send).not.toHaveBeenCalled();
-    expect(mock.notify).not.toHaveBeenCalled();
-    expect(mock.insert).not.toHaveBeenCalled();
-  });
-
-  it("fails closed if the settings service is unavailable", async () => {
-    const mock = loadHandler(name, auth => marketingEmailAllowed(auth, vi.fn().mockRejectedValue(new Error("offline"))));
-    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
-    expect(mock.send).not.toHaveBeenCalled();
-    expect(mock.notify).not.toHaveBeenCalled();
-  });
-
-  it("blocks a pause applied after recipient lookup", async () => {
-    const policy = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  it.each([true, false, null, "unavailable"])("holds manual sends with global pause %s before settings, lookup, providers or writes", async pause => {
+    const policy = vi.fn().mockImplementation(async () => { if (pause === "unavailable") throw new Error("offline"); return pause === false; });
     const mock = loadHandler(name, policy);
-    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
-    expect(policy).toHaveBeenCalledTimes(2);
+    const res = await mock.handler(request());
+    expect(await res.json()).toMatchObject({ success: false, paused: true, sending_enabled: false, sent: 0 });
+    expect(policy).not.toHaveBeenCalled();
+    expect(mock.recipient).not.toHaveBeenCalled();
+    expect(mock.suppression).not.toHaveBeenCalled();
+    expect(mock.envGet).not.toHaveBeenCalled();
     expect(mock.send).not.toHaveBeenCalled();
     expect(mock.notify).not.toHaveBeenCalled();
     expect(mock.insert).not.toHaveBeenCalled();
   });
-
-  it("allows the established email path only with explicit unpaused checks (provider mocked)", async () => {
-    const settings = vi.fn().mockImplementation(async () => new Response(JSON.stringify([{ marketing_paused: false }])));
-    const mock = loadHandler(name, auth => marketingEmailAllowed(auth, settings));
-    expect(await (await mock.handler(request())).json()).toMatchObject({ success: true });
-    expect(settings).toHaveBeenCalledTimes(2);
-    expect(mock.send).toHaveBeenCalledTimes(1);
-    expect(mock.send.mock.calls[0][0]).toBe("https://api.sendgrid.com/v3/mail/send");
-  });
-
-  it("suppresses an unsubscribed recipient without providers, alerts or writes even when globally unpaused", async () => {
+  it("cannot be released by caller flags", async () => {
     const mock = loadHandler(name, vi.fn().mockResolvedValue(true));
-    mock.suppression.mockResolvedValue(false);
-    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
-    expect(mock.suppression).toHaveBeenCalledWith("test@example.test");
+    const res = await mock.handler(request({ force: true, marketing_paused: false, sending_enabled: true, override: true }));
+    expect(await res.json()).toMatchObject({ success: false, sent: 0 });
     expect(mock.send).not.toHaveBeenCalled();
-    expect(mock.notify).not.toHaveBeenCalled();
-    expect(mock.insert).not.toHaveBeenCalled();
-  });
-
-  if (name === "send-birthday-email") it("suppresses delivery when the birthday BCC recipient is opted out", async () => {
-    const mock = loadHandler(name, vi.fn().mockResolvedValue(true));
-    mock.suppression.mockImplementation(async email => email !== "michaeleberhardt01@gmail.com");
-    expect(await (await mock.handler(request())).json()).toMatchObject({ success: false, paused: true });
-    expect(mock.send).not.toHaveBeenCalled();
-    expect(mock.insert).not.toHaveBeenCalled();
   });
 });
 

@@ -64,3 +64,4 @@
 - [ ] Verify Social Insight live pause/queue/paid-ad state and repair its safeguards — requires that project's chat; snapshots cannot update it.
 - [ ] Verify authenticated CRM read endpoints — requires accepted website staff session without entering auto-send layout.- [x] Stage deny-by-default admin-only CRM gate (`_shared/crm-admin-gate.ts`) with tests; not wired or deployed.
 - [ ] Wire gate into 14 staff-auth bridges and tighten RLS — blocked: owner's website admin role must be verified with a real website session (unavailable here).
+- [x] 2026-10-21 Owner hold: manual + automatic follow-up email and birthday email permanently held; deployed.
