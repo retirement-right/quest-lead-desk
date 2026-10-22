@@ -78,3 +78,5 @@
 - [x] Publish password-reset correction and verify live bundle — public /login HTTP 200; deployment b3506d598ebf19306f47e2da157c1a9c502da5e3; reset destination, help and expired-link text present; login help visually verified. No reset initiated.
 - [ ] Verify full emailed password-reset flow — owner must initiate a fresh request and complete it; deliberately not exercised by agent.
 - [ ] Return to November Facebook campaign — separate campaign-project task; ads unchanged here.
+
+- [x] Read-only CRM sign-in diagnosis (Oct 22): CRM uses Website login, no separate CRM admin/role; owner to run website-then-CRM typed sign-in test.
