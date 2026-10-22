@@ -1,4 +1,5 @@
 import { useEffect, useState, FormEvent } from "react";
+import { parseResetLinkError } from "@/lib/passwordReset";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [linkError] = useState(() => parseResetLinkError(window.location.hash));
 
   useEffect(() => {
     // Supabase delivers the recovery session via the URL hash.
@@ -55,7 +58,8 @@ export default function ResetPassword() {
           <CardDescription>
             {ready
               ? "Choose a new password for your CRM login."
-              : "Open this page from the reset link in your email."}
+              : linkError ??
+                "Open this page from the reset link in your email. If it has expired, request a new one from the sign-in page."}
           </CardDescription>
         </CardHeader>
         <CardContent>

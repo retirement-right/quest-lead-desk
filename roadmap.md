@@ -72,3 +72,4 @@
 - [ ] Add `https://quest-lead-desk.lovable.app/**` to the website login's Redirect URLs. Blocked: owner action in the website project settings.
 - [ ] Wire the admin-only gate, then close the six rules and rescan. Blocked: the owner's admin role must first be confirmed from the website chat.
 - [ ] Review the 2 CRM-backend auth accounts and signup setting. Do this after the gate is wired.
+- [x] CRM Forgot password -> Website /admin/reset-password (code-only, unpublished; awaiting owner publish approval)
