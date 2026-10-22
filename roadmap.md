@@ -65,3 +65,10 @@
 - [ ] Verify authenticated CRM read endpoints — requires accepted website staff session without entering auto-send layout.- [x] Stage deny-by-default admin-only CRM gate (`_shared/crm-admin-gate.ts`) with tests; not wired or deployed.
 - [ ] Wire gate into 14 staff-auth bridges and tighten RLS — blocked: owner's website admin role must be verified with a real website session (unavailable here).
 - [x] 2026-10-21 Owner hold: manual + automatic follow-up email and birthday email permanently held; deployed.
+
+## Oct 22 security and password-reset audit
+- [x] Read-only check of the six critical access findings: all six rules are live and unchanged since Oct 19. They only reach CRM-backend accounts, not website-login staff.
+- [x] Diagnose the CRM password reset landing on retirement-right.com. Cause: CRM sign-in uses the website login, whose redirect allowlist likely lacks the CRM address. CRM-side settings are already correct.
+- [ ] Add `https://quest-lead-desk.lovable.app/**` to the website login's Redirect URLs. Blocked: owner action in the website project settings.
+- [ ] Wire the admin-only gate, then close the six rules and rescan. Blocked: the owner's admin role must first be confirmed from the website chat.
+- [ ] Review the 2 CRM-backend auth accounts and signup setting. Do this after the gate is wired.
