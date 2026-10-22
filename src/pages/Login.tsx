@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { requestPasswordReset, RESET_HELP_TEXT } from "@/lib/passwordReset";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,18 +37,15 @@ export default function Login() {
   };
 
   const onReset = async () => {
-    const target = email.trim().toLowerCase();
-    if (!target) {
+    if (!email.trim()) {
       toast.error("Enter your email first");
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(target, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await requestPasswordReset(supabase, email);
     setLoading(false);
     if (error) toast.error(error.message);
-    else toast.success("Reset link sent — check your email");
+    else toast.success("Reset link sent — open the newest email, set your password on the Retirement Right site, then return here.");
   };
 
 
