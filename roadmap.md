@@ -72,4 +72,7 @@
 - [ ] Add `https://quest-lead-desk.lovable.app/**` to the website login's Redirect URLs. Blocked: owner action in the website project settings.
 - [ ] Wire the admin-only gate, then close the six rules and rescan. Blocked: the owner's admin role must first be confirmed from the website chat.
 - [ ] Review the 2 CRM-backend auth accounts and signup setting. Do this after the gate is wired.
-- [x] CRM Forgot password -> Website /admin/reset-password (code-only, unpublished; awaiting owner publish approval)
+- [x] CRM Forgot password -> Website /admin/reset-password (code-only; owner approved frontend-only publication; 233 mock tests passed and approved commit hosted compilation succeeded).
+- [x] Preserve two nonruntime planning notes outside the project and remove them from pending publication.
+- [ ] Publish password-reset correction and verify live bundle — blocked until actual published baseline is established or owner approves the isolated five-file diff against origin/_agent-publish despite baseline uncertainty.
+- [ ] Return to November Facebook campaign — separate campaign-project task; ads unchanged here.
