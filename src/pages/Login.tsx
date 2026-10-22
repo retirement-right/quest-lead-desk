@@ -93,6 +93,7 @@ export default function Login() {
             >
               Forgot password?
             </Button>
+            <p className="text-xs text-center text-muted-foreground">{RESET_HELP_TEXT}</p>
           </form>
 
         </CardContent>
