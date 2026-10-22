@@ -74,5 +74,6 @@
 - [ ] Review the 2 CRM-backend auth accounts and signup setting. Do this after the gate is wired.
 - [x] CRM Forgot password -> Website /admin/reset-password (code-only; owner approved frontend-only publication; 233 mock tests passed and approved commit hosted compilation succeeded).
 - [x] Preserve two nonruntime planning notes outside the project and remove them from pending publication.
-- [ ] Publish password-reset correction and verify live bundle — blocked until actual published baseline is established or owner approves the isolated five-file diff against origin/_agent-publish despite baseline uncertainty.
+- [x] Establish published baseline from live HTML deployment metadata (caf94615139d9012545a9b6639500387987c80d2); comparison contains only the five owner-approved files.
+- [ ] Publish password-reset correction and verify live bundle — scope verified; pending publication and public read-back.
 - [ ] Return to November Facebook campaign — separate campaign-project task; ads unchanged here.
