@@ -27,3 +27,5 @@ No provider calls, live reset requests, customer writes, restrictive migrations,
 - `requireStaffAuth` now requires the protected Website admin role; deployed to 16 functions (12 prior + birthdays-this-month, admin-backfill-leadjig-appointment-at, crm-match-report, import-bookedin-csv).
 - Lockdown applied as migration `crm_access_lockdown`; row counts unchanged; anon REST returns 401 on all five tables; bucket listing empty for anon.
 - Fresh scan: no issues. Remaining: manual SMS opt-out at provider boundary (unchanged).
+- ~21:08 UTC: manual SMS opt-out guard (`_shared/sms-opt-out.ts`) deployed to send-followup-sms and send-birthday-sms. Latest stored inbound STOP/START keyword per exact E.164 number blocks (409); lookup failure blocks (503). Four stored inbound STOP-type replies exist.
+- Read-only scheduled website scan: 2,910 contacts, 6 pages, complete, 0 due, paused, 0 sent.

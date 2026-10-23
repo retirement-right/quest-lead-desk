@@ -1,5 +1,6 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
+import { checkSmsOptOut, OPT_OUT_MESSAGE, OPT_OUT_UNAVAILABLE_MESSAGE } from "../_shared/sms-opt-out.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizePhone } from "../_shared/followup-auth.ts";
 import { notifyBirthdaySmsSent, notifyBirthdaySmsFailed } from "../_shared/admin-notify.ts";
@@ -115,6 +116,11 @@ Deno.serve(async (req) => {
       });
       await notifyBirthdaySmsFailed(body.contactName);
       return jsonResponse({ success: false, error: "Invalid phone" }, 400);
+    }
+
+    {
+      const opt = await checkSmsOptOut(admin, to);
+      if (opt.blocked) return jsonResponse({ success: false, opted_out: opt.reason === "opted_out", error: opt.reason === "opted_out" ? OPT_OUT_MESSAGE : OPT_OUT_UNAVAILABLE_MESSAGE }, opt.reason === "opted_out" ? 409 : 503);
     }
 
     const text = isPersonalStage(body.lifecycleStage) ? personalSms(body.firstName) : standardSms(body.firstName);

@@ -51,6 +51,7 @@ function isolatedSms(name: string, identity = verifiedIdentity, roles: unknown =
     });
     return exports;
   }
+  modules["../_shared/sms-opt-out.ts"] = evaluate("supabase/functions/_shared/sms-opt-out.ts");
   modules["./crm-admin-gate.ts"] = evaluate("supabase/functions/_shared/crm-admin-gate.ts");
   const auth = evaluate("supabase/functions/_shared/followup-auth.ts");
   modules["./followup-auth.ts"] = auth;

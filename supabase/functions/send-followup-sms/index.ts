@@ -1,5 +1,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { checkSmsOptOut, OPT_OUT_MESSAGE, OPT_OUT_UNAVAILABLE_MESSAGE } from "../_shared/sms-opt-out.ts";
 import {
   jsonResponse,
   loadLeadRecipient,
@@ -60,6 +62,12 @@ Deno.serve(async (req) => {
     const { recipient: to, firstName, fullName } = lead;
     clientPhone = to;
     clientName = clientName || fullName;
+
+    {
+      const cu = Deno.env.get("SUPABASE_URL"); const ck = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const opt = await checkSmsOptOut(cu && ck ? createClient(cu, ck, { auth: { persistSession: false } }) : null, to);
+      if (opt.blocked) return jsonResponse({ success: false, opted_out: opt.reason === "opted_out", error: opt.reason === "opted_out" ? OPT_OUT_MESSAGE : OPT_OUT_UNAVAILABLE_MESSAGE }, opt.reason === "opted_out" ? 409 : 503);
+    }
 
     const text = `Hi ${firstName}, this is Michael from Retirement Right. Just checking in — give me a call at 480-726-8805 when you have a moment. Thank you!`;
 
