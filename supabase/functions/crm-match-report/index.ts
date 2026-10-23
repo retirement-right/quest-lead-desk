@@ -1,3 +1,4 @@
+import { requireStaffAuth } from "../_shared/followup-auth.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
@@ -6,6 +7,7 @@ const LEADJIG_KEY = Deno.env.get("LEADJIG_SERVICE_ROLE_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const __a = await requireStaffAuth(req); if (__a instanceof Response) return __a; }
   const json = (b: unknown, s = 200) =>
     new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

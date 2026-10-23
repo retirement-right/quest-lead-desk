@@ -1,3 +1,4 @@
+import { requireStaffAuth } from "../_shared/followup-auth.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const PROXY_URL = "https://uoneplysuvmaygbrbswd.supabase.co/functions/v1/leadjig-update-from-bookedin";
@@ -49,6 +50,7 @@ function normalizePhone(p: string): string | null {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const __a = await requireStaffAuth(req); if (__a instanceof Response) return __a; }
   try {
     const { csv, dryRun = false, onlyEmails } = await req.json();
     const onlySet: Set<string> | null = Array.isArray(onlyEmails) && onlyEmails.length
