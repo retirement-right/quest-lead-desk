@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { checkCrmAdmin } from "./crm-admin-gate.ts";
 
 const LEADJIG_URL = "https://uoneplysuvmaygbrbswd.supabase.co";
 // Publishable (anon) key — safe to embed; same value used in the browser client.
@@ -13,10 +14,10 @@ export function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-/** Validates LeadJig staff JWT (CRM login). Rejects anon/public calls.
- *  Uses the LeadJig publishable key — not the service role — so this works
- *  even when LEADJIG_SERVICE_ROLE_KEY is stale. JWT validation only needs
- *  to call /auth/v1/user, which the anon key permits. */
+/** Validates the Website (Retirement Right) staff JWT AND requires the
+ *  protected Website `admin` role, read with the caller's own session
+ *  (self-role RLS). Never trusts user metadata. Fails closed:
+ *  401 bad identity, 403 not admin, 503 role lookup unavailable/malformed. */
 export async function requireStaffAuth(
   req: Request,
 ): Promise<{ userId: string; jwt: string; email: string | null } | Response> {
@@ -31,6 +32,18 @@ export async function requireStaffAuth(
   const { data: { user }, error } = await client.auth.getUser(jwt);
   if (error || !user) {
     return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+  const gate = await checkCrmAdmin({ userId: user.id, jwt }, async (verifiedId, token) => {
+    const roleClient = createClient(LEADJIG_URL, LEADJIG_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await roleClient
+      .from("user_roles").select("user_id,role").eq("user_id", verifiedId).limit(4);
+    return { data, error };
+  });
+  if (!gate.allowed) {
+    return jsonResponse({ error: gate.status === 403 ? "Forbidden" : gate.status === 401 ? "Unauthorized" : "Authorization unavailable" }, gate.status);
   }
   return { userId: user.id, jwt, email: user.email ?? null };
 }
