@@ -14,7 +14,7 @@ const verifiedIdentity: IdentityResult = {
  * The auth service is simulated; no JWT, credentials or customer data are used.
  * All non-auth SDK operations and all fetches throw before any external effect.
  */
-function isolatedSms(name: string, identity = verifiedIdentity) {
+function isolatedSms(name: string, identity = verifiedIdentity, roles: unknown = [{ user_id: verifiedIdentity.data.user!.id, role: "admin" }]) {
   let handler: Handler | undefined;
   const authLookup = vi.fn().mockResolvedValue(identity);
   const forbidden = vi.fn((..._args: unknown[]) => { throw new Error("External effect forbidden by isolated harness"); });
@@ -22,7 +22,9 @@ function isolatedSms(name: string, identity = verifiedIdentity) {
     if (key === "LEADJIG_ANON_KEY") return undefined; // Public-key fallback only.
     return forbidden(key);
   });
-  const sdkClient = vi.fn(() => ({ auth: { getUser: authLookup }, from: forbidden, storage: { from: forbidden } }));
+  const roleLookup = vi.fn(() => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: roles, error: null }) }) }) }));
+  const from = vi.fn((table: string) => table === "user_roles" ? roleLookup() : forbidden(table));
+  const sdkClient = vi.fn(() => ({ auth: { getUser: authLookup }, from, storage: { from: forbidden } }));
   const modules: Record<string, unknown> = {
     "https://esm.sh/@supabase/supabase-js@2.95.0": { createClient: sdkClient },
     "https://esm.sh/@supabase/supabase-js@2.95.0/cors": { corsHeaders: {} },
@@ -49,6 +51,7 @@ function isolatedSms(name: string, identity = verifiedIdentity) {
     });
     return exports;
   }
+  modules["./crm-admin-gate.ts"] = evaluate("supabase/functions/_shared/crm-admin-gate.ts");
   const auth = evaluate("supabase/functions/_shared/followup-auth.ts");
   modules["./followup-auth.ts"] = auth;
   modules["../_shared/followup-auth.ts"] = auth;
@@ -56,7 +59,7 @@ function isolatedSms(name: string, identity = verifiedIdentity) {
   evaluate(`supabase/functions/${name}/index.ts`);
   if (!handler) throw new Error("SMS handler did not register");
   envGet.mockClear();
-  return { handler, authLookup, sdkClient, envGet, forbidden };
+  return { handler, authLookup, sdkClient, envGet, forbidden, roleLookup };
 }
 
 const post = (body: unknown, authorization = "Bearer simulated-identity-token") => new Request("https://isolated.example.test/sms", {
@@ -87,7 +90,7 @@ describe.each(["send-followup-sms", "send-birthday-sms"])("%s with actual authen
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ success: false, paused: true, sending_enabled: false, sent: 0 });
     expect(mock.authLookup).toHaveBeenCalledExactlyOnceWith("simulated-identity-token");
-    expect(mock.sdkClient).toHaveBeenCalledTimes(1); // Only the isolated identity validation client.
+    expect(mock.sdkClient).toHaveBeenCalledTimes(2); // Identity validation + self-role read only.
     expect(mock.envGet).not.toHaveBeenCalled();
     expect(mock.forbidden).not.toHaveBeenCalled();
   });
@@ -97,6 +100,14 @@ describe.each(["send-followup-sms", "send-birthday-sms"])("%s with actual authen
     const response = await mock.handler(post({ auto: true, force: true, dry_run: false, sending_enabled: true, marketing_paused: false }));
     expect(await response.json()).toMatchObject({ sending_enabled: false, sent: 0 });
     expect(mock.authLookup).toHaveBeenCalledTimes(1);
+    expect(mock.envGet).not.toHaveBeenCalled();
+    expect(mock.forbidden).not.toHaveBeenCalled();
+  });
+
+  it.each([[[{ user_id: verifiedIdentity.data.user!.id, role: "user" }], 403], [[], 403], [[{ user_id: "00000000-0000-4000-8000-000000000009", role: "admin" }], 503], [null, 503]] as const)(
+    "denies non-admin or unverifiable role %j with %s before any effect", async (roles, status) => {
+    const mock = isolatedSms(name, verifiedIdentity, roles);
+    expect((await mock.handler(post({ auto: false, to: "+15555550100", body: "x" }))).status).toBe(status);
     expect(mock.envGet).not.toHaveBeenCalled();
     expect(mock.forbidden).not.toHaveBeenCalled();
   });

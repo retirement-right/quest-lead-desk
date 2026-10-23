@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   // one-shot admin endpoint; will be deleted after backfill
+  { const __a = await requireStaffAuth(req); if (__a instanceof Response) return __a; }
 
 
   let body: { emails?: string[] };

@@ -1,8 +1,10 @@
+import { requireStaffAuth } from "../_shared/followup-auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const __a = await requireStaffAuth(req); if (__a instanceof Response) return __a; }
   try {
     const sb = createClient(
       "https://uoneplysuvmaygbrbswd.supabase.co",
