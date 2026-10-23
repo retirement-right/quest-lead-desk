@@ -63,9 +63,11 @@ describe("indexed authoritative consent RPC in isolated PostgreSQL, no productio
   it.each(["contact_activity", "inbound_sms_unmatched"])("does not miss STOP behind 250 newer ordinary replies in %s", async table => {
     const sender = table === "contact_activity" ? "+14805550101" : "+14805550102";
     if (table === "contact_activity") {
-      await db.query("INSERT INTO public.contact_activity VALUES($1,'inbound','STOP','2026-01-01'); INSERT INTO public.contact_activity SELECT $1,'inbound','ordinary reply','2026-01-02'::timestamptz + n*interval '1 minute' FROM generate_series(1,250) n", [sender]);
+      await db.query("INSERT INTO public.contact_activity VALUES($1,'inbound','STOP','2026-01-01')", [sender]);
+      await db.query("INSERT INTO public.contact_activity SELECT $1,'inbound','ordinary reply','2026-01-02'::timestamptz + n*interval '1 minute' FROM generate_series(1,250) n", [sender]);
     } else {
-      await db.query("INSERT INTO public.inbound_sms_unmatched VALUES($1,'STOP','2026-01-01'); INSERT INTO public.inbound_sms_unmatched SELECT $1,'ordinary reply','2026-01-02'::timestamptz + n*interval '1 minute' FROM generate_series(1,250) n", [sender]);
+      await db.query("INSERT INTO public.inbound_sms_unmatched VALUES($1,'STOP','2026-01-01')", [sender]);
+      await db.query("INSERT INTO public.inbound_sms_unmatched SELECT $1,'ordinary reply','2026-01-02'::timestamptz + n*interval '1 minute' FROM generate_series(1,250) n", [sender]);
     }
     expect(await read(sender)).toBe("opted_out");
   });
