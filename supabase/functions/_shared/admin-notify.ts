@@ -4,6 +4,9 @@
 // contact_activity — the client's own record should show only the client's
 // message. Uses the same Twilio credentials/sending number as follow-up sends.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { checkSmsOptOut, normalizeSmsPhone } from "./sms-opt-out.ts";
+
 const ADMIN_PHONE = Deno.env.get("ADMIN_ALERT_PHONE") ?? "+14802214264";
 
 function fmtWhen(d = new Date()): string {
@@ -19,6 +22,11 @@ function fmtWhen(d = new Date()): string {
 }
 
 async function sendAdminSms(text: string): Promise<void> {
+  const to = normalizeSmsPhone(ADMIN_PHONE);
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const consent = await checkSmsOptOut(url && key ? createClient(url, key, { auth: { persistSession: false } }) : null, to ?? "");
+  if (!to || consent.blocked) return;
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const token = Deno.env.get("TWILIO_AUTH_TOKEN");
   const from = Deno.env.get("TWILIO_PHONE_NUMBER");
@@ -35,7 +43,7 @@ async function sendAdminSms(text: string): Promise<void> {
           Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({ To: ADMIN_PHONE, From: from, Body: text }),
+        body: new URLSearchParams({ To: to, From: from, Body: text }),
       },
     );
     if (!res.ok) {

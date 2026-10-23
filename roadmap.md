@@ -1,5 +1,10 @@
 # Safe integration health audit
 
+## Historical SMS opt-out completion — Oct 23
+- [x] Replace capped reply scans with indexed phone-specific latest STOP/START lookup; isolated tests cover 250 later replies in each source, normalization, tie blocking and fail-closed boundaries. Production indexes/RPC service-only permissions read back.
+- [x] Protect admin SMS copies; preserve automatic holds; basic security scan clean. Automatic function deployment applies; exact running-source parity and provider behavior cannot be proven without a supported deployment readback/no-send hook.
+- [ ] Genuine Website non-admin session and independent concurrent persistence: blocked by unavailable isolated Website auth stack; local PostgreSQL initialization cannot resolve a non-root OS user. Production accounts/events not created; isolated single-connection tests only.
+
 ## Staff least-privilege proposal — 2026-10-21
 - [x] Inspect current Cloud authentication/role metadata and website role source snapshot; document an unapplied least-privilege proposal with owner-access prerequisites.
 - [x] Add and run an isolated SMS handler harness exercising the real authentication helper with simulated identity validation and no network or storage access: 28 new tests, 215 targeted tests passed.

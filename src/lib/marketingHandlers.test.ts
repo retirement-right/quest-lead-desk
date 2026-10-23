@@ -17,6 +17,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   const scan = vi.fn().mockImplementation(inspectScheduledFollowups);
   const cronAuth = vi.fn().mockResolvedValue(null);
   const suppression = vi.fn().mockResolvedValue(true);
+  const smsConsent = vi.fn().mockResolvedValue({ blocked: false });
   const envGet = vi.fn().mockReturnValue("mock-only-credential");
   const recipient = vi.fn().mockResolvedValue({ recipient: "test@example.test", firstName: "Mock", fullName: "Mock Contact" });
   const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -47,7 +48,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     "../_shared/followup-scan.ts": { inspectScheduledFollowups: scan },
     "../_shared/website-integration-secret.ts": { websiteIntegrationSecret: (read: (n: string) => string | undefined) => read("WEBSITE_CRM_INTEGRATION_SECRET") },
     "../_shared/cloud-email-suppression.ts": { cloudEmailRecipientAllowed: suppression },
-    "../_shared/sms-opt-out.ts": { checkSmsOptOut: vi.fn(async () => ({ blocked: false })), OPT_OUT_MESSAGE: "", OPT_OUT_UNAVAILABLE_MESSAGE: "" },
+    "../_shared/sms-opt-out.ts": { checkSmsOptOut: smsConsent, OPT_OUT_MESSAGE: "SMS opted out", OPT_OUT_UNAVAILABLE_MESSAGE: "SMS lookup unavailable" },
   };
   const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -61,7 +62,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
   });
   if (!handler) throw new Error("Handler not registered");
   envGet.mockClear(); // Ignore module initialization; dispatch must not load credentials.
-  return { handler, send, notify, insert, scan, cronAuth, suppression, envGet, recipient };
+  return { handler, send, notify, insert, scan, cronAuth, suppression, smsConsent, envGet, recipient };
 }
 
 describe.each(["send-followup-email", "send-birthday-email"])("%s owner category hold", name => {
@@ -192,6 +193,27 @@ describe.each(["send-followup-sms", "send-birthday-sms", "send-followup-email", 
 });
 
 describe("manual SMS compatibility (all providers mocked)", () => {
+  it.each(["send-followup-sms", "send-birthday-sms"])("blocks opted-out manual %s before all provider/notification/writes", async name => {
+    const mock = loadHandler(name, vi.fn());
+    mock.smsConsent.mockResolvedValue({ blocked: true, reason: "opted_out" });
+    const response = await mock.handler(new Request("https://crm.example.test/function", {
+      method: "POST", body: JSON.stringify({ auto: false, leadId: "mock", contactId: "mock", phone: "+14805550123" }),
+    }));
+    expect(response.status).toBe(409);
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+  });
+  it.each(["send-followup-sms", "send-birthday-sms"])("fails closed for unavailable lookup in %s", async name => {
+    const mock = loadHandler(name, vi.fn());
+    mock.smsConsent.mockResolvedValue({ blocked: true, reason: "unavailable" });
+    expect((await mock.handler(new Request("https://crm.example.test/function", {
+      method: "POST", body: JSON.stringify({ auto: false, leadId: "mock", contactId: "mock", phone: "+14805550123" }),
+    }))).status).toBe(503);
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.notify).not.toHaveBeenCalled();
+    expect(mock.insert).not.toHaveBeenCalled();
+  });
   it.each(["send-followup-sms", "send-birthday-sms"])("retains explicit manual %s", async name => {
     const mock = loadHandler(name, vi.fn());
     mock.send.mockImplementation(async () => new Response(JSON.stringify({ sid: "mock-only-sid" }), { status: 202 }));

@@ -15,6 +15,13 @@
       "when": 1792789148753,
       "tag": "0001_crm_access_lockdown",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792793924738,
+      "tag": "0002_indexed_sms_opt_out",
+      "breakpoints": true
     }
   ]
 }
