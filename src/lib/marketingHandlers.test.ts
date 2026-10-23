@@ -47,7 +47,7 @@ function loadHandler(name: string, policy: typeof marketingEmailAllowed) {
     "../_shared/followup-scan.ts": { inspectScheduledFollowups: scan },
     "../_shared/website-integration-secret.ts": { websiteIntegrationSecret: (read: (n: string) => string | undefined) => read("WEBSITE_CRM_INTEGRATION_SECRET") },
     "../_shared/cloud-email-suppression.ts": { cloudEmailRecipientAllowed: suppression },
-    "../_shared/sms-opt-out.ts": { checkSmsOptOut: forbidden, OPT_OUT_MESSAGE: "", OPT_OUT_UNAVAILABLE_MESSAGE: "" },
+    "../_shared/sms-opt-out.ts": { checkSmsOptOut: vi.fn(() => { throw new Error("opt-out lookup forbidden in hold test"); }), OPT_OUT_MESSAGE: "", OPT_OUT_UNAVAILABLE_MESSAGE: "" },
   };
   const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
