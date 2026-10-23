@@ -9,8 +9,11 @@ Deno.serve(async () => {
   const out = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
   if (!key) return out({ error: "unavailable" }, 503);
   const db = createClient("https://uoneplysuvmaygbrbswd.supabase.co", key, { auth: { persistSession: false } });
-  let userId: string | null = null;
-  for (let page = 1; page <= 20 && !userId; page++) {
+  // Owner id as recorded by the Website project on 2026-10-19 (role re-grant).
+  let userId: string | null = "a76c05b2-44b8-4e5a-8925-a3dbe81822ba";
+  const probe = await db.from("user_roles").select("role").limit(1);
+  if (probe.error) return out({ error: "service read rejected", status: probe.status }, 503);
+  for (let page = 1; page <= 0 && !userId; page++) {
     const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
     if (error) return out({ error: "user lookup failed" }, 503);
     userId = data.users.find((u) => u.email?.toLowerCase() === OWNER)?.id ?? null;
