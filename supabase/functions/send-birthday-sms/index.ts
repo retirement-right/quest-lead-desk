@@ -1,5 +1,6 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { readManualDispatchBody } from "../_shared/automatic-dispatch.ts";
+import { checkSmsOptOut, OPT_OUT_MESSAGE, OPT_OUT_UNAVAILABLE_MESSAGE } from "../_shared/sms-opt-out.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { jsonResponse, requireStaffAuth, normalizePhone } from "../_shared/followup-auth.ts";
 import { notifyBirthdaySmsSent, notifyBirthdaySmsFailed } from "../_shared/admin-notify.ts";
