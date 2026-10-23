@@ -16,13 +16,13 @@ RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path = public AS $$
   FROM (SELECT regexp_replace(regexp_replace(upper(trim(_body)), '[.![:space:]]+$', ''), '[[:space:]]+', ' ', 'g') AS k) normalized;
 $$;
 CREATE INDEX IF NOT EXISTS contact_activity_sms_consent_latest
-ON public.contact_activity (public.normalize_sms_phone(sender), created_at DESC)
+ON public.contact_activity (public.normalize_sms_phone(sender), created_at DESC, (public.sms_consent_keyword(body)='out') DESC)
 WHERE direction='inbound' AND public.sms_consent_keyword(body) IS NOT NULL;
 CREATE INDEX IF NOT EXISTS inbound_sms_unmatched_consent_latest
-ON public.inbound_sms_unmatched (public.normalize_sms_phone(from_number), received_at DESC)
+ON public.inbound_sms_unmatched (public.normalize_sms_phone(from_number), received_at DESC, (public.sms_consent_keyword(body)='out') DESC)
 WHERE public.sms_consent_keyword(body) IS NOT NULL;
 CREATE OR REPLACE FUNCTION public.sms_opt_out_status(_phone text)
-RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
 DECLARE phone text; decision text;
 BEGIN
   phone := public.normalize_sms_phone(_phone);
