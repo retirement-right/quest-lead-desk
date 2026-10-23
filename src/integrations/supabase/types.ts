@@ -316,6 +316,9 @@ export type Database = {
         }
         Returns: string
       }
+      normalize_sms_phone: { Args: { _phone: string }; Returns: string }
+      sms_consent_keyword: { Args: { _body: string }; Returns: string }
+      sms_opt_out_status: { Args: { _phone: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
