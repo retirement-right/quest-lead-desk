@@ -64,6 +64,23 @@ const post = (body: unknown, authorization = "Bearer simulated-identity-token") 
 });
 
 describe.each(["send-followup-sms", "send-birthday-sms"])("%s with actual authentication helper (identity service simulated)", name => {
+  it.each(["GET", "PUT", "DELETE"])("denies unsupported %s before identity lookup or dispatch effects", async method => {
+    const mock = isolatedSms(name);
+    expect((await mock.handler(new Request("https://isolated.example.test/sms", { method }))).status).toBe(405);
+    expect(mock.authLookup).not.toHaveBeenCalled();
+    expect(mock.envGet).not.toHaveBeenCalled();
+    expect(mock.forbidden).not.toHaveBeenCalled();
+  });
+  it("rejects malformed JSON after identity validation without effects", async () => {
+    const mock = isolatedSms(name);
+    const response = await mock.handler(new Request("https://isolated.example.test/sms", {
+      method: "POST", headers: { Authorization: "Bearer simulated-identity-token" }, body: "{bad",
+    }));
+    expect(response.status).toBe(400);
+    expect(mock.authLookup).toHaveBeenCalledExactlyOnceWith("simulated-identity-token");
+    expect(mock.envGet).not.toHaveBeenCalled();
+    expect(mock.forbidden).not.toHaveBeenCalled();
+  });
   it.each([true, false, null, "unavailable"])("holds validated identity with claimed pause %s, without external effects", async pause => {
     const mock = isolatedSms(name);
     const response = await mock.handler(post({ auto: true, marketing_paused: pause }));
