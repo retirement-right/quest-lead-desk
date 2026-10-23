@@ -1,5 +1,10 @@
 # Safe integration health audit
 
+## Historical SMS opt-out completion — Oct 23
+- [ ] Replace capped reply scans with indexed phone-specific latest STOP/START lookup; test >200 replies and fail-closed boundaries.
+- [ ] Protect admin SMS copies; preserve automatic holds; verify deployment, fresh scan and read-only integration checks.
+- [ ] Verify genuine non-admin and duplicate concurrency only in isolated environments where safely available; report unavailable live checks explicitly.
+
 ## Staff least-privilege proposal — 2026-10-21
 - [x] Inspect current Cloud authentication/role metadata and website role source snapshot; document an unapplied least-privilege proposal with owner-access prerequisites.
 - [x] Add and run an isolated SMS handler harness exercising the real authentication helper with simulated identity validation and no network or storage access: 28 new tests, 215 targeted tests passed.
