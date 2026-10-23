@@ -117,6 +117,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: "Invalid phone" }, 400);
     }
 
+    {
+      const opt = await checkSmsOptOut(admin, to);
+      if (opt.blocked) return jsonResponse({ success: false, opted_out: opt.reason === "opted_out", error: opt.reason === "opted_out" ? OPT_OUT_MESSAGE : OPT_OUT_UNAVAILABLE_MESSAGE }, opt.reason === "opted_out" ? 409 : 503);
+    }
+
     const text = isPersonalStage(body.lifecycleStage) ? personalSms(body.firstName) : standardSms(body.firstName);
 
     const twAuth = btoa(`${SID}:${TOK}`);
