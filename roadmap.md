@@ -82,5 +82,7 @@
 - [x] Read-only CRM sign-in diagnosis (Oct 22): CRM uses Website login, no separate CRM admin/role; owner to run website-then-CRM typed sign-in test.
 
 ## Oct 23 owner-authorized six-finding remediation
-- [ ] Read back owner admin role before any restrictive change — blocked: CRM's stored website service key is rejected (401); readback must come from the Website project or the owner's own session. Temporary read-only check deployed, then deleted.
-- [ ] Wire admin gate into 14 staff-auth functions; tighten RLS/storage; test, deploy, rescan — waiting on the readback above.
+- [x] Owner reports live Website database confirmation of the existing admin role and signed-in self-role read (Oct 23); this is Website-role evidence, not a verified CRM authorization flow.
+- [x] Reinspect published login targets and CRM source: Website JWT authentication, no independent CRM role table, session-only page protection, staged unwired admin gate. Public login HTTP 200; 38 isolated admin/SMS tests pass. Live scan at 17:17:30 UTC still reports six errors and two storage warnings.
+- [ ] Verify owner access through the actual CRM Website session and proposed server-side role lookup before restrictive changes — blocked: available managed session status is signed_out and belongs to CRM Cloud, not the separate Website auth client; no usable Website session is available in this sandbox. Prior owner dashboard sign-in remains acknowledged.
+- [ ] Protect all 14 privileged handlers and tighten the six table/storage areas only after verified owner access. Inventory: 12 handlers call identity-only requireStaffAuth; birthdays-this-month lacks an in-handler identity check; admin-backfill-leadjig-appointment-at imports but never calls requireStaffAuth. These two bypasses are source evidence, not live invocation tests. No handlers, policies, settings or deployments changed in this resumed check.
