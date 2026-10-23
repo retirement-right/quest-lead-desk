@@ -82,6 +82,7 @@
 - [x] Read-only CRM sign-in diagnosis (Oct 22): CRM uses Website login, no separate CRM admin/role; owner to run website-then-CRM typed sign-in test.
 
 ## Oct 23 owner-authorized six-finding remediation
+- [ ] Continued authorization at 17:21 UTC: add a send-neutral CRM admin access check and stricter isolated authorization tests; prepare and test, but do not apply, table/file lockdown until real owner access is verified. Preserve SMS holds and all data/workflows.
 - [x] Owner reports live Website database confirmation of the existing admin role and signed-in self-role read (Oct 23); this is Website-role evidence, not a verified CRM authorization flow.
 - [x] Reinspect published login targets and CRM source: Website JWT authentication, no independent CRM role table, session-only page protection, staged unwired admin gate. Public login HTTP 200; 38 isolated admin/SMS tests pass. Live scan at 17:17:30 UTC still reports six errors and two storage warnings.
 - [ ] Verify owner access through the actual CRM Website session and proposed server-side role lookup before restrictive changes — blocked: available managed session status is signed_out and belongs to CRM Cloud, not the separate Website auth client; no usable Website session is available in this sandbox. Prior owner dashboard sign-in remains acknowledged.
