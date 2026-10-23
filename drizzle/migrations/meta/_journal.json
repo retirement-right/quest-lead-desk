@@ -8,6 +8,13 @@
       "when": 1792347502557,
       "tag": "0000_held_crm_website_event_receiver",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792789148753,
+      "tag": "0001_crm_access_lockdown",
+      "breakpoints": true
     }
   ]
 }
