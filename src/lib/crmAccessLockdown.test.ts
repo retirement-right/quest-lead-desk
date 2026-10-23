@@ -63,6 +63,8 @@ describe("staged Cloud direct-access lockdown in isolated Postgres (not producti
       expect((await db.query("DELETE FROM storage.objects WHERE bucket_id='lead-documents' RETURNING id")).rows).toEqual([]);
       await expect(db.exec("INSERT INTO storage.objects VALUES(3,'lead-documents')")).rejects.toThrow(/row-level security/);
     } finally { await db.exec("RESET ROLE"); }
-    expect((await db.query("SELECT id FROM storage.objects ORDER BY id")).rows).toEqual([{ id: 1 }, { id: 2 }]);
+    await db.exec("SET SESSION AUTHORIZATION postgres; SET ROLE service_role");
+    try { expect((await db.query("SELECT id FROM storage.objects ORDER BY id")).rows).toEqual([{ id: 1 }, { id: 2 }]); }
+    finally { await db.exec("RESET ROLE"); }
   });
 });
