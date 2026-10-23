@@ -80,3 +80,7 @@
 - [ ] Return to November Facebook campaign — separate campaign-project task; ads unchanged here.
 
 - [x] Read-only CRM sign-in diagnosis (Oct 22): CRM uses Website login, no separate CRM admin/role; owner to run website-then-CRM typed sign-in test.
+
+## Oct 23 owner-authorized six-finding remediation
+- [ ] Read back owner admin role (website login) before any restrictive change.
+- [ ] Wire admin gate into 14 staff-auth functions; tighten RLS/storage; test, deploy, rescan.
