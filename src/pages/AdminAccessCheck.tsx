@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { verifyWebsiteCrmAdmin } from "../../supabase/functions/_shared/crm-admin-verification";
+import { WEBSITE_URL, WEBSITE_PUBLISHABLE_KEY } from "../../supabase/functions/_shared/website-rest";
 
 export default function AdminAccessCheck() {
   const { loading, session } = useAuth();
@@ -22,14 +23,14 @@ export default function AdminAccessCheck() {
         return;
       }
       const verified = await verifyWebsiteCrmAdmin(data.session.access_token, {
-        url: supabase.supabaseUrl,
-        publishableKey: supabase.supabaseKey,
+        url: WEBSITE_URL,
+        publishableKey: WEBSITE_PUBLISHABLE_KEY,
       });
       setResult(verified.allowed
         ? "Verified: your current Retirement Right session has the administrator role. CRM access rules have not been changed."
-        : verified.status === 403
+        : "status" in verified && verified.status === 403
           ? "Administrator access was not confirmed for this account. CRM access rules have not been changed."
-          : verified.status === 401
+          : "status" in verified && verified.status === 401
             ? "Your session could not be verified. Sign in to CRM again."
             : "Administrator verification is unavailable. CRM access rules have not been changed.");
     } finally {
