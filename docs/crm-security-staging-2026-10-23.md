@@ -23,3 +23,7 @@
 Open `/admin/access-check` in the Lovable preview while signed into CRM and select Verify administrator access. Report the displayed result only, never passwords or tokens. This reads Website identity and protected roles and cannot send, access customer records, forward events or change permissions. A successful browser role read is a prerequisite, not proof that production handlers already enforce it.
 
 No provider calls, live reset requests, customer writes, restrictive migrations, backend handler changes, deployments, publication, schedules, forwarding or marketing changes were performed.
+## Applied Oct 23 2026 ~21:00 UTC (after owner's verified admin readback)
+- `requireStaffAuth` now requires the protected Website admin role; deployed to 16 functions (12 prior + birthdays-this-month, admin-backfill-leadjig-appointment-at, crm-match-report, import-bookedin-csv).
+- Lockdown applied as migration `crm_access_lockdown`; row counts unchanged; anon REST returns 401 on all five tables; bucket listing empty for anon.
+- Fresh scan: no issues. Remaining: manual SMS opt-out at provider boundary (unchanged).
