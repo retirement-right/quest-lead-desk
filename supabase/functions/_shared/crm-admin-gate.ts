@@ -20,7 +20,9 @@ export async function checkCrmAdmin(
   for (const row of res.data) {
     if (!row || typeof row !== "object") return { allowed: false, status: 503 };
     const r = row as Record<string, unknown>;
-    if (r.user_id !== undefined && r.user_id !== identity.userId) return { allowed: false, status: 503 };
+    if (r.user_id !== identity.userId || !["admin", "moderator", "user"].includes(String(r.role))) {
+      return { allowed: false, status: 503 };
+    }
   }
   const isAdmin = res.data.some((r) => (r as Record<string, unknown>).role === "admin");
   return isAdmin ? { allowed: true, userId: identity.userId } : { allowed: false, status: 403 };

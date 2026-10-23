@@ -23,4 +23,13 @@ describe("CRM admin-only gate (owner rule: only the verified admin account)", ()
     expect(await checkCrmAdmin(id, vi.fn().mockResolvedValue({ data: { role: "admin" }, error: null }))).toEqual({ allowed: false, status: 503 }));
   it("fails closed on another user's admin row", async () =>
     expect(await checkCrmAdmin(id, vi.fn().mockResolvedValue({ data: [{ user_id: "00000000-0000-4000-8000-000000000002", role: "admin" }], error: null }))).toEqual({ allowed: false, status: 503 }));
+  it("rejects admin rows missing their verified user ID", async () =>
+    expect(await checkCrmAdmin(id, vi.fn().mockResolvedValue({ data: [{ role: "admin" }], error: null }))).toEqual({ allowed: false, status: 503 }));
+  it("rejects unknown roles rather than interpreting malformed rows", async () =>
+    expect(await checkCrmAdmin(id, rows("superadmin"))).toEqual({ allowed: false, status: 503 }));
+  it("passes only the verified identity and token to role lookup", async () => {
+    const lookup = rows("admin");
+    await checkCrmAdmin(id, lookup);
+    expect(lookup).toHaveBeenCalledExactlyOnceWith(id.userId, id.jwt);
+  });
 });

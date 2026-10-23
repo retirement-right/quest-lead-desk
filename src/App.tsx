@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { RequireAuth } from "@/components/RequireAuth";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
+import AdminAccessCheck from "./pages/AdminAccessCheck";
 
 import Contacts from "./pages/Contacts";
 import ContactDetail from "./pages/ContactDetail";
@@ -31,6 +32,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/admin/access-check" element={<AdminAccessCheck />} />
 
             <Route path="/" element={<RequireAuth><Contacts /></RequireAuth>} />
             <Route path="/follow-ups" element={<RequireAuth><FollowUps /></RequireAuth>} />
