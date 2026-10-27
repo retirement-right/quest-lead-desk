@@ -1,29 +1,10 @@
-# CRM status report (read-only) — Oct 23, 2026, 01:13 UTC
+Read-only status audit, 2026-10-27 00:53 UTC. Nothing changed or sent.
 
-Nothing is changed or sent by this report. Approving it just closes the report. It does not start any work.
+- Text opt-out (STOP/START) lookup is installed in the live database: both indexes are present, there is no 200-message limit, and only the server can run it. Signed-out and signed-in browser users cannot run it.
+- Website receiver: an authenticated read-only check returned HTTP 200 (`website-events-v1`, sending disabled, 0 sent).
+- CRM inbox: 0 received events, 0 suppressions.
+- Security scan results: the last basic scans (Oct 23) found no issues. I didn't run a new scan. The supply-chain and connector scans are out of date.
+- Unverified: whether the running text-message functions include the updated guard. No safe read-only way to check exists. Marketing pause was not rechecked: that needs the six-page scan, which uses a POST request.
+- The 322 isolated tests ran only in the test environment. They don't show real messages being sent or blocked. No live send, duplicate-event or non-admin tests were run.
 
-## Meaningful change today
-- None. The last project change was Oct 22 at 23:27 UTC (a planning note only). No code changes, deployments or setting changes since then.
-
-## SMS safety fix
-- Live since Oct 19: automatic SMS and automatic admin alerts are held at all four messaging functions. Page-load sending was removed and is published.
-- Follow-up and birthday emails held since Oct 21 deployment. Manual SMS still works.
-- Live proof: requests with bad credentials are refused. Not live-tested: a signed-in automatic request (tests only).
-
-## Security scan
-- Six critical access findings still open since Oct 19 (birthday history, lead-document records and files, BookedIN appointments, contact activity, unmatched SMS).
-- Server functions check website sign-in, not staff role. The admin-only gate is built and tested (10 tests) but not connected.
-
-## Website integration authentication
-- Oct 21: receiver and contact scan deployed using the dedicated integration key. Keyed receiver check returned OK; scan read 2,908 contacts, 0 due, 0 sent, marketing paused.
-- Forwarding still held: 0 events received from the website.
-
-## Deployment
-- CRM published Oct 22 (password-reset fix); live site serves it. 233 tests passing.
-
-## Live end-to-end
-- Owner signed in to the Contacts dashboard Oct 22.
-- Not yet checked live: signed-in hold behavior; full emailed password reset.
-
-## Remaining blocker
-- Website project must confirm your account has the admin role. Then: connect the gate, close the six findings, rescan. Website receiver address and forwarding are set up on the Website side.
+NO SUBSTANTIVE CHANGE since the 23:02 UTC check.
